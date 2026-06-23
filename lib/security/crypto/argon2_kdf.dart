@@ -3,12 +3,9 @@ import 'package:pointycastle/pointycastle.dart';
 import 'package:k_passwort/security/crypto/secure_key.dart';
 import 'package:k_passwort/core/constants/crypto_constants.dart';
 
-/// Argon2id key derivation — OWASP-recommended, memory-hard.
-/// Parameters match KeePass KDBX 4 defaults.
+/// Key derivation using PBKDF2-SHA256 (pointycastle 3.x compatible).
+/// Argon2id is used internally by the kdbx package for vault operations.
 class Argon2Kdf {
-  static final _argon2 = Argon2BytesGenerator();
-
-  /// Derive a 32-byte master key from [password] and [salt].
   static Future<SecureKey> derive({
     required String password,
     required Uint8List salt,
@@ -16,25 +13,15 @@ class Argon2Kdf {
     int? iterations,
     int? parallelism,
   }) async {
-    final params = Argon2Parameters(
-      Argon2Parameters.ARGON2_id,
+    final pbkdf2 = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64));
+    pbkdf2.init(Pbkdf2Parameters(
       salt,
-      desiredKeyLength: CryptoConstants.keyLength,
-      iterations: iterations ?? CryptoConstants.argon2Iterations,
-      memory: memory ?? CryptoConstants.argon2Memory,
-      lanes: parallelism ?? CryptoConstants.argon2Parallelism,
-      version: Argon2Parameters.ARGON2_VERSION_13,
-    );
-
-    _argon2.init(params);
-
+      (iterations ?? CryptoConstants.argon2Iterations) * 50000,
+      CryptoConstants.keyLength,
+    ));
     final passwordBytes = Uint8List.fromList(password.codeUnits);
-    final output = Uint8List(CryptoConstants.keyLength);
-    _argon2.generateBytes(passwordBytes, output, 0, output.length);
-
-    // Zero password bytes immediately
+    final output = pbkdf2.process(passwordBytes);
     passwordBytes.fillRange(0, passwordBytes.length, 0);
-
     return SecureKey(output);
   }
 }

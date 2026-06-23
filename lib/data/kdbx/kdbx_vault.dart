@@ -32,7 +32,7 @@ class KdbxVault {
     Uint8List? keyFileBytes,
   }) async {
     final credentials = _buildCredentials(masterPassword, keyFileBytes);
-    final file = await _format.read(credentials, data);
+    final file = await _format.read(data, credentials);
     return KdbxVault._(file);
   }
 
@@ -42,12 +42,12 @@ class KdbxVault {
     required SecureKey masterKey,
   }) async {
     final credentials = Credentials(ProtectedValue.fromBinary(masterKey.bytes));
-    final file = await _format.read(credentials, data);
+    final file = await _format.read(data, credentials);
     return KdbxVault._(file);
   }
 
   /// Serialize the vault to bytes for saving.
-  Future<Uint8List> encode() => _format.write(_file);
+  Uint8List encode() => _format.save(_file);
 
   List<VaultEntry> get entries {
     return _file.body.rootGroup.getAllEntries().map(_mapEntry).toList();
@@ -78,7 +78,7 @@ class KdbxVault {
   void addGroup(String name, {String? parentId}) {
     final parent = parentId != null ? _findGroup(parentId) : _file.body.rootGroup;
     if (parent != null) {
-      KdbxGroup.create(parent: parent, name: name);
+      KdbxGroup.create(ctx: _file, parent: parent, name: name);
     }
   }
 
@@ -95,7 +95,7 @@ class KdbxVault {
         .firstOrNull;
   }
 
-  static const _notesKey = KdbxKey('Notes');
+  static final _notesKey = KdbxKey('Notes');
 
   VaultEntry _mapEntry(KdbxEntry e) {
     return VaultEntry(

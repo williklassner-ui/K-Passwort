@@ -6,10 +6,9 @@ import 'package:k_passwort/security/crypto/secure_key.dart';
 
 /// Wrapper around the kdbx package — provides KDBX read/write.
 class KdbxVault {
-  KdbxVault._(this._file, this._credentials);
+  KdbxVault._(this._file);
 
   final KdbxFile _file;
-  final Credentials _credentials;
   static final _format = KdbxFormat();
 
   /// Create a new empty KDBX vault.
@@ -23,7 +22,7 @@ class KdbxVault {
       'K-Passwort Vault',
       generator: 'K-Passwort',
     );
-    return KdbxVault._(file, credentials);
+    return KdbxVault._(file);
   }
 
   /// Open an existing KDBX file from bytes.
@@ -34,7 +33,7 @@ class KdbxVault {
   }) async {
     final credentials = _buildCredentials(masterPassword, keyFileBytes);
     final file = await _format.read(data, credentials);
-    return KdbxVault._(file, credentials);
+    return KdbxVault._(file);
   }
 
   /// Open using a pre-derived SecureKey (biometric unlock).
@@ -44,11 +43,18 @@ class KdbxVault {
   }) async {
     final credentials = Credentials(ProtectedValue.fromBinary(masterKey.bytes));
     final file = await _format.read(data, credentials);
-    return KdbxVault._(file, credentials);
+    return KdbxVault._(file);
   }
 
   /// Serialize the vault to bytes for saving.
-  Uint8List encode() => _format.save(_file, _credentials);
+  /// kdbx 2.4.2 save() uses a writer callback; the KdbxFile holds credentials.
+  Future<Uint8List> encode() async {
+    late Uint8List output;
+    await _format.save(_file, (bytes) async {
+      output = bytes;
+    });
+    return output;
+  }
 
   List<VaultEntry> get entries {
     return _file.body.rootGroup.getAllEntries().map(_mapEntry).toList();

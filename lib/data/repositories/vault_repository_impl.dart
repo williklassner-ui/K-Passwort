@@ -66,7 +66,7 @@ class VaultRepositoryImpl implements VaultRepository {
   @override
   Future<void> save() async {
     if (_vault == null || _currentUri == null) return;
-    final bytes = _vault!.encode();
+    final bytes = await _vault!.encode();
     final ok = await SafStorage.writeFile(_currentUri!, bytes);
     if (!ok) throw const StorageFailure('Vault konnte nicht gespeichert werden');
   }

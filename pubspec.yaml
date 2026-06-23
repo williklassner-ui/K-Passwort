@@ -19,7 +19,7 @@ dependencies:
   go_router: ^14.2.0
 
   # KDBX 4.x (KeePass-compatible)
-  kdbx: ^4.0.0
+  kdbx: ^3.4.0
 
   # Crypto
   pointycastle: ^3.9.1

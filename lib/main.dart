@@ -1,0 +1,31 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:k_passwort/app.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Lock orientation to portrait
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // Immersive dark status bar
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Color(0xFF000000),
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
+
+  runApp(const ProviderScope(child: KPasswortApp()));
+}
+
+/// Entry point for the Autofill Picker Activity (minimal Flutter UI).
+@pragma('vm:entry-point')
+void autofillMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ProviderScope(child: AutofillPickerApp()));
+}

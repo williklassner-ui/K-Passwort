@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">K-Passwort</string>
+    <string name="autofill_service_name">K-Passwort Autofill</string>
+    <string name="biometric_prompt_title">K-Passwort entsperren</string>
+    <string name="biometric_prompt_subtitle">Biometrische Authentifizierung</string>
+    <string name="biometric_prompt_cancel">Abbrechen</string>
+    <string name="autofill_dataset_label">K-Passwort</string>
+    <string name="clipboard_cleared">Zwischenablage geleert</string>
+</resources>

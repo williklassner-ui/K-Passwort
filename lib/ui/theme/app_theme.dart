@@ -28,7 +28,7 @@ class AppTheme {
       ),
 
       // Cards
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: KPasswortColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -167,7 +167,7 @@ class AppTheme {
       ),
 
       // Dialog
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: KPasswortColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titleTextStyle: AppTypography.titleLarge,

@@ -34,9 +34,6 @@ class MasterKeyManager {
     final compositePassword = _buildCompositePassword(password, keyFileBytes);
     final key = await Argon2Kdf.derive(password: compositePassword, salt: salt);
 
-    // Zero the composite password immediately
-    compositePassword.fillRange(0, compositePassword.length, 0);
-
     _masterKey?.dispose();
     _masterKey = key;
   }

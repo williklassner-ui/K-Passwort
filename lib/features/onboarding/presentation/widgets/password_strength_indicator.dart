@@ -13,7 +13,7 @@ class PasswordStrengthIndicator extends StatelessWidget {
     if (password.isEmpty) return const SizedBox.shrink();
 
     final result = Zxcvbn().evaluate(password);
-    final score = result.score ?? 0;
+    final score = (result.score ?? 0).toInt();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

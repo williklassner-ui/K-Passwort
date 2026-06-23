@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/security/biometric/biometric_service.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
+import 'package:k_passwort/security/keystore/session_manager.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';

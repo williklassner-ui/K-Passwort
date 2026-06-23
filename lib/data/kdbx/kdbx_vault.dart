@@ -4,14 +4,14 @@ import 'package:k_passwort/data/models/vault_entry.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
 import 'package:k_passwort/security/crypto/secure_key.dart';
 
-/// Wrapper around the kdbx package — provides KDBX 4.x read/write.
+/// Wrapper around the kdbx package — provides KDBX read/write.
 class KdbxVault {
   KdbxVault._(this._file);
 
   final KdbxFile _file;
   static final _format = KdbxFormat();
 
-  /// Create a new empty KDBX 4 vault.
+  /// Create a new empty KDBX vault.
   static Future<KdbxVault> create({
     required String masterPassword,
     Uint8List? keyFileBytes,
@@ -32,7 +32,7 @@ class KdbxVault {
     Uint8List? keyFileBytes,
   }) async {
     final credentials = _buildCredentials(masterPassword, keyFileBytes);
-    final file = await _format.decode(data, credentials);
+    final file = await _format.read(credentials, data);
     return KdbxVault._(file);
   }
 
@@ -41,14 +41,13 @@ class KdbxVault {
     required Uint8List data,
     required SecureKey masterKey,
   }) async {
-    // Use kdbx raw key credentials
     final credentials = Credentials(ProtectedValue.fromBinary(masterKey.bytes));
-    final file = await _format.decode(data, credentials);
+    final file = await _format.read(credentials, data);
     return KdbxVault._(file);
   }
 
   /// Serialize the vault to bytes for saving.
-  Future<Uint8List> encode() => _format.encode(_file);
+  Future<Uint8List> encode() => _format.write(_file);
 
   List<VaultEntry> get entries {
     return _file.body.rootGroup.getAllEntries().map(_mapEntry).toList();
@@ -72,14 +71,14 @@ class KdbxVault {
   void deleteEntry(String id) {
     final kdbxEntry = _findEntry(id);
     if (kdbxEntry != null) {
-      _file.body.rootGroup.remove(kdbxEntry);
+      kdbxEntry.parent?.entries.remove(kdbxEntry);
     }
   }
 
   void addGroup(String name, {String? parentId}) {
     final parent = parentId != null ? _findGroup(parentId) : _file.body.rootGroup;
     if (parent != null) {
-      KdbxGroup.create(file: _file, parent: parent, name: name);
+      KdbxGroup.create(parent: parent, name: name);
     }
   }
 
@@ -96,6 +95,8 @@ class KdbxVault {
         .firstOrNull;
   }
 
+  static const _notesKey = KdbxKey('Notes');
+
   VaultEntry _mapEntry(KdbxEntry e) {
     return VaultEntry(
       id: e.uuid.uuid,
@@ -104,7 +105,7 @@ class KdbxVault {
       username: e.getString(KdbxKeyCommon.USER_NAME)?.getText() ?? '',
       password: e.getString(KdbxKeyCommon.PASSWORD)?.getText() ?? '',
       url: e.getString(KdbxKeyCommon.URL)?.getText() ?? '',
-      notes: e.getString(KdbxKeyCommon.NOTES)?.getText() ?? '',
+      notes: e.getString(_notesKey)?.getText() ?? '',
       createdAt: e.times.creationTime.get() ?? DateTime.now(),
       updatedAt: e.times.lastModificationTime.get() ?? DateTime.now(),
       groupId: e.parent?.uuid.uuid,
@@ -126,7 +127,7 @@ class KdbxVault {
     entry.setString(KdbxKeyCommon.USER_NAME, PlainValue(data.username));
     entry.setString(KdbxKeyCommon.PASSWORD, ProtectedValue.fromString(data.password));
     entry.setString(KdbxKeyCommon.URL, PlainValue(data.url));
-    entry.setString(KdbxKeyCommon.NOTES, PlainValue(data.notes));
+    entry.setString(_notesKey, PlainValue(data.notes));
 
     for (final field in data.customFields) {
       final kdbxKey = KdbxKey(field.key);
@@ -143,7 +144,7 @@ class KdbxVault {
     if (keyFileBytes != null) {
       return Credentials.composite(
         ProtectedValue.fromString(password),
-        KeyFileCredentials(keyFileBytes),
+        keyFileBytes,
       );
     }
     return Credentials(ProtectedValue.fromString(password));

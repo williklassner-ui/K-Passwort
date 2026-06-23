@@ -6,9 +6,10 @@ import 'package:k_passwort/security/crypto/secure_key.dart';
 
 /// Wrapper around the kdbx package — provides KDBX read/write.
 class KdbxVault {
-  KdbxVault._(this._file);
+  KdbxVault._(this._file, this._credentials);
 
   final KdbxFile _file;
+  final Credentials _credentials;
   static final _format = KdbxFormat();
 
   /// Create a new empty KDBX vault.
@@ -22,7 +23,7 @@ class KdbxVault {
       'K-Passwort Vault',
       generator: 'K-Passwort',
     );
-    return KdbxVault._(file);
+    return KdbxVault._(file, credentials);
   }
 
   /// Open an existing KDBX file from bytes.
@@ -33,7 +34,7 @@ class KdbxVault {
   }) async {
     final credentials = _buildCredentials(masterPassword, keyFileBytes);
     final file = await _format.read(data, credentials);
-    return KdbxVault._(file);
+    return KdbxVault._(file, credentials);
   }
 
   /// Open using a pre-derived SecureKey (biometric unlock).
@@ -43,11 +44,11 @@ class KdbxVault {
   }) async {
     final credentials = Credentials(ProtectedValue.fromBinary(masterKey.bytes));
     final file = await _format.read(data, credentials);
-    return KdbxVault._(file);
+    return KdbxVault._(file, credentials);
   }
 
   /// Serialize the vault to bytes for saving.
-  Uint8List encode() => _format.save(_file);
+  Uint8List encode() => _format.save(_file, _credentials);
 
   List<VaultEntry> get entries {
     return _file.body.rootGroup.getAllEntries().map(_mapEntry).toList();
@@ -78,7 +79,7 @@ class KdbxVault {
   void addGroup(String name, {String? parentId}) {
     final parent = parentId != null ? _findGroup(parentId) : _file.body.rootGroup;
     if (parent != null) {
-      KdbxGroup.create(ctx: _file, parent: parent, name: name);
+      KdbxGroup.create(ctx: _file.ctx, parent: parent, name: name);
     }
   }
 

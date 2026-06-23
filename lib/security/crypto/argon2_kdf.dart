@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:pointycastle/pointycastle.dart';
+import 'package:pointycastle/export.dart';
 import 'package:k_passwort/security/crypto/secure_key.dart';
 import 'package:k_passwort/core/constants/crypto_constants.dart';
 

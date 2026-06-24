@@ -4,11 +4,15 @@ import 'package:k_passwort/data/models/vault_group.dart';
 import 'package:k_passwort/data/repositories/vault_repository.dart';
 import 'package:k_passwort/data/repositories/vault_repository_impl.dart';
 
+/// Incremented after every vault mutation so all downstream providers re-run.
+final vaultRevisionProvider = StateProvider<int>((ref) => 0);
+
 final vaultRepositoryProvider = Provider<VaultRepository>((ref) {
   return VaultRepositoryImpl();
 });
 
 final vaultProvider = Provider<VaultRepository>((ref) {
+  ref.watch(vaultRevisionProvider); // re-run on any mutation
   return ref.watch(vaultRepositoryProvider);
 });
 

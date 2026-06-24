@@ -69,6 +69,7 @@ class _State extends ConsumerState<EntryDetailScreen> {
             onPressed: () async {
               final updated = entry.copyWith(isFavorite: !entry.isFavorite);
               await ref.read(vaultRepositoryProvider).updateEntry(updated);
+              ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
             },
           ),
         ],

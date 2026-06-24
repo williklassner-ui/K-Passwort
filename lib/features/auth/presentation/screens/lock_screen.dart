@@ -78,6 +78,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   }
 
   void _onUnlocked() {
+    ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
     ref.read(sessionProvider.notifier).unlock();
     if (mounted) context.go(Routes.vault);
   }
@@ -148,7 +149,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   onPressed: _loading ? null : _unlockWithPassword,
                   child: _loading
                       ? const SizedBox(height: 20, width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
                       : const Text('Entsperren'),
                 ),
               ).animate(delay: 300.ms).fadeIn(),

@@ -101,6 +101,8 @@ class _State extends ConsumerState<EntryEditScreen> {
         }
       }
 
+      ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
+
       if (mounted) {
         context.go(widget.entryId != null
             ? '/vault/entry/${widget.entryId}'

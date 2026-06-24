@@ -78,6 +78,7 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
         await keyManager.unlockWithPassword(password: password);
       }
 
+      ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
       ref.read(sessionProvider.notifier).unlock();
 
       if (mounted) context.go(Routes.onboardingBiometric);

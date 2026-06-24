@@ -20,19 +20,19 @@ class RouteGuard extends ChangeNotifier {
 
     final isOnboarding = path.startsWith('/onboarding');
     final isLock = path == Routes.lock;
-    final isVault = !isOnboarding && !isLock;
+    final isSwitchVault = path.startsWith(Routes.switchVault);
 
-    // No vault configured → go to onboarding
-    if (!vault.isOpen && !isOnboarding) {
-      return Routes.onboardingWelcome;
+    // Vault not open: lock screen handles redirect to onboarding if no URI stored
+    if (!vault.isOpen && !isOnboarding && !isLock && !isSwitchVault) {
+      return Routes.lock;
     }
 
-    // Vault open but locked → go to lock screen
+    // Vault open but session locked → lock screen
     if (vault.isOpen && session == SessionState.locked && !isLock) {
       return Routes.lock;
     }
 
-    // Unlocked but trying to view lock screen → go to vault
+    // Unlocked and on lock screen → vault
     if (session == SessionState.unlocked && isLock) {
       return Routes.vault;
     }

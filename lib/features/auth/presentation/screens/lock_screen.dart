@@ -3,14 +3,16 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
+import 'package:k_passwort/data/storage/saf_storage.dart';
+import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
+import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
 import 'package:k_passwort/security/keystore/session_manager.dart';
+import 'package:k_passwort/sync/saf_sync_service.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
 import 'package:k_passwort/ui/widgets/secure_text_field.dart';
-import 'package:k_passwort/sync/saf_sync_service.dart';
-import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key});
@@ -23,11 +25,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   final _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;
+  String? _storedUri;
 
   @override
   void initState() {
     super.initState();
-    _tryBiometric();
+    _checkStoredVault();
   }
 
   @override
@@ -36,16 +39,33 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     super.dispose();
   }
 
+  Future<void> _checkStoredVault() async {
+    final uri = await SyncStateNotifier.getSavedVaultUri();
+    if (!mounted) return;
+    if (uri == null) {
+      // No vault ever configured → go to onboarding
+      context.go(Routes.onboardingWelcome);
+      return;
+    }
+    setState(() => _storedUri = uri);
+    _tryBiometric();
+  }
+
   Future<void> _tryBiometric() async {
+    final repo = ref.read(vaultRepositoryProvider);
+    // Biometric only re-unlocks a session where vault is already in memory.
+    // After a fresh app start the KDBX file must be opened with the password.
+    if (!repo.isOpen) return;
+
     final keyManager = ref.read(masterKeyManagerProvider);
     if (!await keyManager.isBiometricEnabled()) return;
 
     setState(() { _loading = true; _error = null; });
     try {
       await keyManager.unlockWithBiometric();
-      _onUnlocked();
+      await _openVault(_storedUri!);
     } catch (e) {
-      setState(() { _loading = false; _error = null; }); // Silent on biometric cancel
+      if (mounted) setState(() { _loading = false; _error = null; });
     }
   }
 
@@ -55,25 +75,58 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       setState(() => _error = 'Passwort eingeben');
       return;
     }
+    final uri = _storedUri;
+    if (uri == null) {
+      context.go(Routes.onboardingWelcome);
+      return;
+    }
 
     setState(() { _loading = true; _error = null; });
 
     try {
       final keyManager = ref.read(masterKeyManagerProvider);
-      final repo = ref.read(vaultRepositoryProvider);
-      final uri = await SyncStateNotifier.getSavedVaultUri();
-      if (uri == null) throw Exception('Kein Tresor konfiguriert');
-
       await keyManager.unlockWithPassword(password: password);
-      await repo.open(vaultUri: uri, masterPassword: password);
-      _onUnlocked();
+      await _openVault(uri);
     } catch (e) {
-      setState(() {
-        _loading = false;
-        _error = e.toString().contains('Wrong') || e.toString().contains('credentials')
-            ? 'Falsches Master-Passwort'
-            : 'Fehler beim Öffnen: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString().contains('Wrong') ||
+                  e.toString().contains('credentials') ||
+                  e.toString().contains('Invalid')
+              ? 'Falsches Master-Passwort'
+              : 'Fehler beim Öffnen: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _openVault(String uri) async {
+    final password = _passwordController.text;
+    final repo = ref.read(vaultRepositoryProvider);
+
+    // Only open if not already open with this URI
+    if (!repo.isOpen) {
+      await repo.open(vaultUri: uri, masterPassword: password);
+    }
+
+    // Keep vault list up to date
+    final info = await _vaultName(uri);
+    await ref.read(vaultListProvider.notifier).add(VaultDescriptor(
+      name: info,
+      uri: uri,
+      lastOpened: DateTime.now(),
+    ));
+
+    _onUnlocked();
+  }
+
+  Future<String> _vaultName(String uri) async {
+    try {
+      final info = await SafStorage.getFileInfo(uri);
+      return (info?['name'] as String?) ?? 'vault.kdbx';
+    } catch (_) {
+      return 'vault.kdbx';
     }
   }
 
@@ -85,6 +138,19 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // While checking stored vault, show loading
+    if (_storedUri == null && _error == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF000000),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF00C6A0),
+            strokeWidth: 2.5,
+          ),
+        ),
+      );
+    }
+
     return GradientScaffold(
       showGradient: true,
       body: SafeArea(
@@ -95,7 +161,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
             children: [
               const Spacer(flex: 2),
 
-              // Lock icon
               Container(
                 width: 80,
                 height: 80,
@@ -108,7 +173,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   color: KPasswortColors.primary,
                   size: 40,
                 ),
-              ).animate().scale(begin: const Offset(0.8, 0.8), curve: Curves.easeOutBack),
+              ).animate().scale(
+                  begin: const Offset(0.8, 0.8),
+                  curve: Curves.easeOutBack),
 
               const SizedBox(height: 24),
 
@@ -117,12 +184,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
               Text(
                 'Gesperrt',
-                style: AppTypography.bodyMedium.copyWith(color: KPasswortColors.onSurfaceVariant),
+                style: AppTypography.bodyMedium
+                    .copyWith(color: KPasswortColors.onSurfaceVariant),
               ).animate(delay: 200.ms).fadeIn(),
 
               const Spacer(flex: 2),
 
-              // Password field
               SecureTextField(
                 controller: _passwordController,
                 label: 'Master-Passwort',
@@ -137,7 +204,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   padding: const EdgeInsets.only(top: 12),
                   child: Text(
                     _error!,
-                    style: AppTypography.bodySmall.copyWith(color: KPasswortColors.error),
+                    style: AppTypography.bodySmall
+                        .copyWith(color: KPasswortColors.error),
                   ),
                 ),
 
@@ -148,15 +216,17 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _unlockWithPassword,
                   child: _loading
-                      ? const SizedBox(height: 20, width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: Colors.white))
                       : const Text('Entsperren'),
                 ),
               ).animate(delay: 300.ms).fadeIn(),
 
               const SizedBox(height: 16),
 
-              // Biometric button
               OutlinedButton.icon(
                 onPressed: _loading ? null : _tryBiometric,
                 icon: const Icon(Icons.fingerprint_rounded, size: 20),
@@ -165,7 +235,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   minimumSize: const Size.fromHeight(48),
                   side: BorderSide(color: KPasswortColors.outline),
                   foregroundColor: KPasswortColors.onBackground,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
               ).animate(delay: 380.ms).fadeIn(),
 

@@ -17,7 +17,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final guard = ref.watch(routeGuardProvider);
 
   return GoRouter(
-    initialLocation: Routes.onboardingWelcome,
+    initialLocation: Routes.lock,
     redirect: guard.redirect,
     refreshListenable: guard,
     routes: [

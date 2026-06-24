@@ -1,0 +1,89 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.yaml') }}
+          restore-keys: ${{ runner.os }}-pub-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Create asset directories
+        run: mkdir -p assets/fonts assets/lottie assets/icons
+
+      - name: Download Inter font
+        run: |
+          curl -fsSL "https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip" -o inter.zip
+          mkdir -p inter_tmp
+          unzip inter.zip -d inter_tmp
+          find inter_tmp -name "Inter-Regular.ttf" | head -1 | xargs -I{} cp {} assets/fonts/Inter-Regular.ttf
+          find inter_tmp -name "Inter-Medium.ttf" | head -1 | xargs -I{} cp {} assets/fonts/Inter-Medium.ttf
+          find inter_tmp -name "Inter-SemiBold.ttf" | head -1 | xargs -I{} cp {} assets/fonts/Inter-SemiBold.ttf
+          find inter_tmp -name "Inter-Bold.ttf" | head -1 | xargs -I{} cp {} assets/fonts/Inter-Bold.ttf
+          rm -rf inter.zip inter_tmp
+          ls -la assets/fonts/
+
+      - name: Download JetBrains Mono font
+        run: |
+          curl -fsSL "https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip" -o jbm.zip
+          mkdir -p jbm_tmp
+          unzip jbm.zip -d jbm_tmp
+          find jbm_tmp -name "JetBrainsMono-Regular.ttf" | head -1 | xargs -I{} cp {} assets/fonts/JetBrainsMono-Regular.ttf
+          find jbm_tmp -name "JetBrainsMono-Medium.ttf" | head -1 | xargs -I{} cp {} assets/fonts/JetBrainsMono-Medium.ttf
+          rm -rf jbm.zip jbm_tmp
+          ls -la assets/fonts/
+
+      - name: Verify fonts
+        run: |
+          for f in Inter-Regular Inter-Medium Inter-SemiBold Inter-Bold JetBrainsMono-Regular JetBrainsMono-Medium; do
+            [ -f "assets/fonts/${f}.ttf" ] && echo "✓ ${f}.ttf" || { echo "✗ MISSING: ${f}.ttf"; exit 1; }
+          done
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run code generation
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Build APK (release)
+        run: flutter build apk --release --android-skip-build-dependency-validation
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k-passwort-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30

@@ -1,0 +1,95 @@
+name: k_passwort
+description: Premium zero-knowledge password manager — KeePass-compatible KDBX 4.x
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Routing
+  go_router: ^14.2.0
+
+  # KDBX 4.x (KeePass-compatible)
+  kdbx: any
+
+  # Crypto
+  pointycastle: ^3.9.1
+  argon2_ffi_base: ^1.0.0
+  cryptography: ^2.7.0
+
+  # Secure storage & biometrics
+  flutter_secure_storage: ^9.2.2
+  local_auth: ^2.3.0
+
+  # UI
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  lottie: ^3.1.2
+  cached_network_image: ^3.4.1
+  flutter_svg: ^2.0.10+1
+
+  # File access (SAF)
+  file_picker: ^8.0.0
+  path_provider: ^2.1.3
+  path: ^1.9.0
+
+  # Password utilities
+  zxcvbn: ^1.0.0
+
+  # Serialization
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.9.0
+
+  # Utils
+  uuid: ^4.4.2
+  equatable: ^2.0.5
+  intl: ^0.19.0
+  rxdart: ^0.27.7
+  connectivity_plus: ^6.0.5
+  url_launcher: ^6.3.0
+  collection: ^1.18.0
+  http: ^1.2.2
+  crypto: ^3.0.3
+  shared_preferences: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.11
+  freezed: ^2.5.2
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+  mockito: ^5.4.4
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/lottie/
+    - assets/icons/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/JetBrainsMono-Medium.ttf
+          weight: 500

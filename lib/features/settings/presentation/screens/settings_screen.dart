@@ -189,7 +189,7 @@ class _State extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 32),
             Center(
               child: Text(
-                'K-Passwort v1.0 — KDBX 4.x kompatibel',
+                'K-Passwort Beta 0.5 — KDBX 4.x kompatibel',
                 style: AppTypography.bodySmall,
               ).animate(delay: 500.ms).fadeIn(),
             ),

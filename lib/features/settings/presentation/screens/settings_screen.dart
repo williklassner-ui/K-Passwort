@@ -15,6 +15,7 @@ import 'package:k_passwort/sync/saf_sync_service.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -28,6 +29,10 @@ class _State extends ConsumerState<SettingsScreen> {
   String? _vaultUri;
   final _bioService = BiometricService();
   bool _biometricAvailable = false;
+  bool _screenshotBlocked = false;
+
+  static const _screenshotKey = 'screenshot_blocked';
+  static const _secureChannel = MethodChannel(CryptoConstants.secureScreenChannel);
 
   @override
   void initState() {
@@ -40,11 +45,20 @@ class _State extends ConsumerState<SettingsScreen> {
     final bioEnabled = await keyManager.isBiometricEnabled();
     final bioAvail = await _bioService.isAvailable();
     final uri = await SyncStateNotifier.getSavedVaultUri();
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
       _biometricEnabled = bioEnabled;
       _biometricAvailable = bioAvail;
       _vaultUri = uri;
+      _screenshotBlocked = prefs.getBool(_screenshotKey) ?? false;
     });
+  }
+
+  Future<void> _toggleScreenshotBlock(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_screenshotKey, value);
+    await _secureChannel.invokeMethod('setSecureScreen', {'enabled': value});
+    setState(() => _screenshotBlocked = value);
   }
 
   Future<void> _changeSyncPath() async {
@@ -96,10 +110,19 @@ class _State extends ConsumerState<SettingsScreen> {
             ).animate(delay: 50.ms).fadeIn(),
 
             _SettingsTile(
+              icon: Icons.no_photography_outlined,
+              title: 'Screenshots sperren',
+              subtitle: 'Verhindert Screenshots und Screen-Recording',
+              trailing: Switch(
+                value: _screenshotBlocked,
+                onChanged: _toggleScreenshotBlock,
+              ),
+            ).animate(delay: 80.ms).fadeIn(),
+
+            _SettingsTile(
               icon: Icons.lock_clock_outlined,
               title: 'Auto-Sperre',
               subtitle: '30 Sekunden im Hintergrund',
-              onTap: () {}, // Future: configurable timeout
             ).animate(delay: 100.ms).fadeIn(),
 
             const SizedBox(height: 24),

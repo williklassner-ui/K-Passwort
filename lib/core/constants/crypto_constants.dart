@@ -26,4 +26,5 @@ abstract class CryptoConstants {
   static const String clipboardChannel = 'com.kpasswort/clipboard';
   static const String autofillChannel = 'com.kpasswort/autofill';
   static const String autofillPickerChannel = 'com.kpasswort/autofill_picker';
+  static const String secureScreenChannel = 'com.kpasswort/secure_screen';
 }

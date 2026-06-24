@@ -200,6 +200,11 @@ class KdbxVault {
             : PlainValue(field.value),
       );
     }
+    // Write manifest so _mapEntry can locate these fields on read-back
+    entry.setString(
+      _cfKeysKey,
+      PlainValue(data.customFields.map((f) => f.key).join('\n')),
+    );
 
     for (var i = 0; i < data.attachments.length; i++) {
       final att = data.attachments[i];
@@ -210,6 +215,7 @@ class KdbxVault {
       });
       entry.setString(KdbxKey('$_attPrefix$i'), ProtectedValue.fromString(json));
     }
+    entry.setString(_attCountKey, PlainValue(data.attachments.length.toString()));
   }
 
   static Credentials _buildCredentials(String password, Uint8List? keyFileBytes) {

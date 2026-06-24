@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 import com.kpasswort.app.autofill.AutofillBridgePlugin
 import com.kpasswort.app.crypto.BiometricCryptoHelper
 import com.kpasswort.app.clipboard.SecureClipboardPlugin
@@ -16,11 +17,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Block screenshots and screen recording in all states
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_SECURE
-        )
+        // Screenshots allowed by default; user can enable blocking in Settings
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -31,6 +28,20 @@ class MainActivity : FlutterFragmentActivity() {
         BiometricCryptoHelper.register(messenger, this)
         SecureClipboardPlugin.register(messenger, this)
         safPlugin = SafPlugin.register(messenger, this)
+
+        MethodChannel(messenger, "com.kpasswort/secure_screen").setMethodCallHandler { call, result ->
+            if (call.method == "setSecureScreen") {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                if (enabled) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+                result.success(true)
+            } else {
+                result.notImplemented()
+            }
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

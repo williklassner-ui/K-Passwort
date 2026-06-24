@@ -16,5 +16,5 @@
 -keep class org.bouncycastle.** { *; }
 -dontwarn org.bouncycastle.**
 
-# Flutter deferred components reference Play Core which may be absent in builds
+# Flutter Play Store deferred components reference Play Core — not used in this app
 -dontwarn com.google.android.play.core.**

@@ -15,3 +15,6 @@
 # Prevent stripping crypto-related classes
 -keep class org.bouncycastle.** { *; }
 -dontwarn org.bouncycastle.**
+
+# Flutter deferred components reference Play Core which may be absent in builds
+-dontwarn com.google.android.play.core.**

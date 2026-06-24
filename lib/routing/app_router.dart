@@ -49,6 +49,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const VaultHomeScreen(),
             routes: [
               GoRoute(
+                path: 'entry/new',
+                builder: (_, __) => const EntryEditScreen(entryId: null),
+              ),
+              GoRoute(
                 path: 'entry/:id',
                 builder: (_, state) =>
                     EntryDetailScreen(entryId: state.pathParameters['id']!),
@@ -59,10 +63,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         EntryEditScreen(entryId: state.pathParameters['id']!),
                   ),
                 ],
-              ),
-              GoRoute(
-                path: 'entry/new',
-                builder: (_, __) => const EntryEditScreen(entryId: null),
               ),
             ],
           ),

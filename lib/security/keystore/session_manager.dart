@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:k_passwort/core/constants/crypto_constants.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
 
@@ -59,5 +60,5 @@ final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
 
 // Providers — declared here to avoid circular imports
 final masterKeyManagerProvider = Provider<MasterKeyManager>((ref) {
-  throw UnimplementedError('Override in ProviderScope');
+  return MasterKeyManager(const FlutterSecureStorage());
 });

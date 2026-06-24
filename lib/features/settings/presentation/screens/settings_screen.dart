@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:k_passwort/core/constants/crypto_constants.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
+import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/security/biometric/biometric_service.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
 import 'package:k_passwort/security/keystore/session_manager.dart';
@@ -152,6 +154,26 @@ class _State extends ConsumerState<SettingsScreen> {
             ).animate(delay: 350.ms).fadeIn(),
 
             const SizedBox(height: 24),
+            _SectionHeader('Datenbanken').animate(delay: 360.ms).fadeIn(),
+
+            _VaultListSection().animate(delay: 370.ms).fadeIn(),
+
+            const SizedBox(height: 8),
+
+            _SettingsTile(
+              icon: Icons.add_rounded,
+              title: 'Neue Datenbank öffnen',
+              subtitle: '.kdbx-Datei hinzufügen',
+              onTap: () => context.go(Routes.onboardingOpenVault),
+            ).animate(delay: 390.ms).fadeIn(),
+
+            _SettingsTile(
+              icon: Icons.create_new_folder_outlined,
+              title: 'Neue Datenbank erstellen',
+              onTap: () => context.go(Routes.onboardingCreateVault),
+            ).animate(delay: 395.ms).fadeIn(),
+
+            const SizedBox(height: 24),
             _SectionHeader('Sitzung').animate(delay: 400.ms).fadeIn(),
 
             _SettingsTile(
@@ -174,6 +196,90 @@ class _State extends ConsumerState<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _VaultListSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final vaults = ref.watch(vaultListProvider);
+    if (vaults.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Text(
+          'Noch keine Datenbanken gespeichert.',
+          style: AppTypography.bodySmall,
+        ),
+      );
+    }
+    final fmt = DateFormat('dd.MM.yyyy');
+    return Column(
+      children: vaults.map((v) {
+        return ListTile(
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: KPasswortColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.lock_outline_rounded,
+                color: KPasswortColors.primary, size: 20),
+          ),
+          title: Text(v.name, style: AppTypography.bodyMedium),
+          subtitle: Text(
+            'Zuletzt geöffnet: ${fmt.format(v.lastOpened)}',
+            style: AppTypography.bodySmall,
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton(
+                onPressed: () {
+                  final uri = Uri(
+                    path: Routes.switchVault,
+                    queryParameters: {'uri': v.uri, 'name': v.name},
+                  );
+                  context.go(uri.toString());
+                },
+                child: const Text('Wechseln'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline_rounded, size: 18),
+                color: KPasswortColors.error,
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Datenbank entfernen?'),
+                      content: Text(
+                        '"${v.name}" wird aus der Liste entfernt.\nDie Datei selbst wird nicht gelöscht.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Abbrechen'),
+                        ),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                              foregroundColor: KPasswortColors.error),
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Entfernen'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    await ref.read(vaultListProvider.notifier).remove(v.uri);
+                  }
+                },
+              ),
+            ],
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        );
+      }).toList(),
     );
   }
 }

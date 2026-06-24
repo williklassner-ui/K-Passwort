@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
@@ -21,7 +21,7 @@ class EntryDetailScreen extends ConsumerStatefulWidget {
 
 class _State extends ConsumerState<EntryDetailScreen> {
   bool _passwordRevealed = false;
-  int? _clipboardCountdown;
+  final Set<String> _revealedFields = {};
 
   Future<void> _copySecure(String text, String label) async {
     const channel = MethodChannel(CryptoConstants.clipboardChannel);
@@ -29,14 +29,37 @@ class _State extends ConsumerState<EntryDetailScreen> {
       'text': text,
       'clearAfterMs': CryptoConstants.clipboardClearDelayMs,
     });
-
-    // Show countdown snackbar
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('$label kopiert — wird in 30s geleert'),
         duration: const Duration(seconds: 3),
       ));
     }
+  }
+
+  Future<void> _deleteEntry(VaultEntry entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Eintrag löschen?'),
+        content: Text('"${entry.title}" wird dauerhaft gelöscht.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: KPasswortColors.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(vaultRepositoryProvider).deleteEntry(entry.id);
+    ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
+    if (mounted) context.go(Routes.vault);
   }
 
   @override
@@ -72,6 +95,11 @@ class _State extends ConsumerState<EntryDetailScreen> {
               ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded),
+            color: KPasswortColors.error,
+            onPressed: () => _deleteEntry(entry),
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -79,12 +107,10 @@ class _State extends ConsumerState<EntryDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Type badge
             _TypeBadge(type: entry.type),
 
             const SizedBox(height: 24),
 
-            // Fields
             if (entry.username.isNotEmpty)
               _FieldRow(
                 label: 'Benutzername',
@@ -97,7 +123,8 @@ class _State extends ConsumerState<EntryDetailScreen> {
               _PasswordRow(
                 password: entry.password,
                 revealed: _passwordRevealed,
-                onToggleReveal: () => setState(() => _passwordRevealed = !_passwordRevealed),
+                onToggleReveal: () =>
+                    setState(() => _passwordRevealed = !_passwordRevealed),
                 onCopy: () => _copySecure(entry.password, 'Passwort'),
               ).animate(delay: 150.ms).fadeIn().slideY(begin: 0.05),
 
@@ -117,19 +144,62 @@ class _State extends ConsumerState<EntryDetailScreen> {
 
             if (entry.customFields.isNotEmpty) ...[
               const SizedBox(height: 8),
-              ...entry.customFields.asMap().entries.map((e) =>
-                _FieldRow(
-                  label: e.value.key,
-                  value: e.value.isProtected ? '••••••••' : e.value.value,
+              ...entry.customFields.asMap().entries.map((e) {
+                final cf = e.value;
+                final isRevealed = _revealedFields.contains(cf.key);
+                if (cf.isProtected) {
+                  return _PasswordRow(
+                    label: cf.key,
+                    password: cf.value,
+                    revealed: isRevealed,
+                    onToggleReveal: () => setState(() => isRevealed
+                        ? _revealedFields.remove(cf.key)
+                        : _revealedFields.add(cf.key)),
+                    onCopy: () => _copySecure(cf.value, cf.key),
+                  ).animate(delay: (280 + e.key * 50).ms).fadeIn().slideY(begin: 0.05);
+                }
+                return _FieldRow(
+                  label: cf.key,
+                  value: cf.value,
                   icon: Icons.tune_rounded,
-                  onCopy: () => _copySecure(e.value.value, e.value.key),
-                ).animate(delay: (280 + e.key * 50).ms).fadeIn().slideY(begin: 0.05)
-              ),
+                  onCopy: () => _copySecure(cf.value, cf.key),
+                ).animate(delay: (280 + e.key * 50).ms).fadeIn().slideY(begin: 0.05);
+              }),
+            ],
+
+            if (entry.attachments.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                'ANHÄNGE',
+                style: AppTypography.labelSmall.copyWith(
+                  color: KPasswortColors.primary,
+                  letterSpacing: 1.2,
+                ),
+              ).animate(delay: 340.ms).fadeIn(),
+              const SizedBox(height: 8),
+              ...entry.attachments.asMap().entries.map((e) {
+                final att = e.value;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: KPasswortColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: KPasswortColors.outline, width: 0.5),
+                  ),
+                  child: ListTile(
+                    leading: const Icon(Icons.attach_file_rounded,
+                        color: KPasswortColors.primary, size: 20),
+                    title: Text(att.name, style: AppTypography.bodyMedium),
+                    subtitle: Text(att.sizeLabel, style: AppTypography.bodySmall),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  ),
+                ).animate(delay: (350 + e.key * 40).ms).fadeIn().slideY(begin: 0.05);
+              }),
             ],
 
             const SizedBox(height: 32),
 
-            // Metadata
             _MetaRow('Erstellt', _formatDate(entry.createdAt)),
             _MetaRow('Geändert', _formatDate(entry.updatedAt)),
           ],
@@ -160,7 +230,8 @@ class _TypeBadge extends StatelessWidget {
         children: [
           Icon(type.icon, size: 14, color: type.color),
           const SizedBox(width: 6),
-          Text(type.name, style: AppTypography.labelSmall.copyWith(color: type.color)),
+          Text(type.name,
+              style: AppTypography.labelSmall.copyWith(color: type.color)),
         ],
       ),
     );
@@ -192,13 +263,14 @@ class _FieldRow extends StatelessWidget {
       child: ListTile(
         leading: Icon(icon, color: KPasswortColors.primary, size: 20),
         title: Text(label, style: AppTypography.labelSmall),
-        subtitle: Text(value, style: AppTypography.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(value, style: AppTypography.bodyMedium),
         trailing: IconButton(
           icon: const Icon(Icons.copy_rounded, size: 18),
           color: KPasswortColors.onSurfaceVariant,
           onPressed: onCopy,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       ),
     );
   }
@@ -206,12 +278,14 @@ class _FieldRow extends StatelessWidget {
 
 class _PasswordRow extends StatelessWidget {
   const _PasswordRow({
+    this.label = 'Passwort',
     required this.password,
     required this.revealed,
     required this.onToggleReveal,
     required this.onCopy,
   });
 
+  final String label;
   final String password;
   final bool revealed;
   final VoidCallback onToggleReveal;
@@ -227,8 +301,9 @@ class _PasswordRow extends StatelessWidget {
         border: Border.all(color: KPasswortColors.outline, width: 0.5),
       ),
       child: ListTile(
-        leading: const Icon(Icons.lock_outline_rounded, color: KPasswortColors.primary, size: 20),
-        title: const Text('Passwort', style: AppTypography.labelSmall),
+        leading: const Icon(Icons.lock_outline_rounded,
+            color: KPasswortColors.primary, size: 20),
+        title: Text(label, style: AppTypography.labelSmall),
         subtitle: ExcludeSemantics(
           child: Text(
             revealed ? password : '•' * password.length.clamp(8, 24),
@@ -244,7 +319,9 @@ class _PasswordRow extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(
-                revealed ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                revealed
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 size: 18,
               ),
               color: KPasswortColors.onSurfaceVariant,
@@ -257,7 +334,8 @@ class _PasswordRow extends StatelessWidget {
             ),
           ],
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       ),
     );
   }
@@ -282,7 +360,8 @@ class _NotesSection extends StatelessWidget {
         children: [
           Text('Notizen', style: AppTypography.labelSmall),
           const SizedBox(height: 8),
-          Text(notes, style: AppTypography.bodyMedium.copyWith(height: 1.5)),
+          Text(notes,
+              style: AppTypography.bodyMedium.copyWith(height: 1.5)),
         ],
       ),
     );
@@ -301,7 +380,9 @@ class _MetaRow extends StatelessWidget {
       child: Row(
         children: [
           Text('$label: ', style: AppTypography.bodySmall),
-          Text(value, style: AppTypography.bodySmall.copyWith(color: KPasswortColors.onBackground)),
+          Text(value,
+              style: AppTypography.bodySmall
+                  .copyWith(color: KPasswortColors.onBackground)),
         ],
       ),
     );

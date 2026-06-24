@@ -17,6 +17,7 @@ class SafPlugin(private val activity: Activity) :
         private const val REQUEST_OPEN_FILE = 1001
         private const val REQUEST_CREATE_FILE = 1002
         private const val REQUEST_OPEN_DIR = 1003
+        private const val REQUEST_PICK_ANY = 1004
 
         fun register(messenger: BinaryMessenger, activity: Activity): SafPlugin {
             val plugin = SafPlugin(activity)
@@ -27,10 +28,12 @@ class SafPlugin(private val activity: Activity) :
 
     private var pendingResult: MethodChannel.Result? = null
     private var pendingOperation: String? = null
+    private var pendingRequestCode: Int = 0
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "pickKdbxFile" -> pickKdbxFile(result)
+            "pickAnyFile" -> pickAnyFile(result)
             "createKdbxFile" -> {
                 val name = call.argument<String>("name") ?: "vault.kdbx"
                 createKdbxFile(name, result)
@@ -56,9 +59,21 @@ class SafPlugin(private val activity: Activity) :
         }
     }
 
+    private fun pickAnyFile(result: MethodChannel.Result) {
+        pendingResult = result
+        pendingOperation = "pick"
+        pendingRequestCode = REQUEST_PICK_ANY
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+        activity.startActivityForResult(intent, REQUEST_PICK_ANY)
+    }
+
     private fun pickKdbxFile(result: MethodChannel.Result) {
         pendingResult = result
         pendingOperation = "pick"
+        pendingRequestCode = REQUEST_OPEN_FILE
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
@@ -74,6 +89,7 @@ class SafPlugin(private val activity: Activity) :
     private fun createKdbxFile(name: String, result: MethodChannel.Result) {
         pendingResult = result
         pendingOperation = "create"
+        pendingRequestCode = REQUEST_CREATE_FILE
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "application/octet-stream"
@@ -132,20 +148,33 @@ class SafPlugin(private val activity: Activity) :
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-        if (requestCode != REQUEST_OPEN_FILE && requestCode != REQUEST_CREATE_FILE) return false
+        if (requestCode != REQUEST_OPEN_FILE && requestCode != REQUEST_CREATE_FILE && requestCode != REQUEST_PICK_ANY) return false
 
         val result = pendingResult ?: return false
         pendingResult = null
 
+        val currentRequestCode = pendingRequestCode
+        pendingRequestCode = 0
+
         if (resultCode == Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
-                // Take persistable permission so we can access across restarts
                 try {
                     val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     activity.contentResolver.takePersistableUriPermission(uri, flags)
                 } catch (_: Exception) {}
-                result.success(uri.toString())
+
+                if (currentRequestCode == REQUEST_PICK_ANY) {
+                    // Return map with uri, name, mimeType for attachment picker
+                    val docFile = DocumentFile.fromSingleUri(activity, uri)
+                    result.success(mapOf(
+                        "uri" to uri.toString(),
+                        "name" to (docFile?.name ?: "attachment"),
+                        "mimeType" to (activity.contentResolver.getType(uri) ?: "application/octet-stream"),
+                    ))
+                } else {
+                    result.success(uri.toString())
+                }
             } else {
                 result.error("NO_URI", "No URI returned", null)
             }

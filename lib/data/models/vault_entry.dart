@@ -17,6 +17,7 @@ class VaultEntry with _$VaultEntry {
     @Default('') String url,
     @Default('') String notes,
     @Default([]) List<CustomField> customFields,
+    @Default([]) List<VaultAttachment> attachments,
     String? totpSecret,
     String? iconUrl,
     String? groupId,
@@ -48,6 +49,26 @@ class CustomField with _$CustomField {
 
   factory CustomField.fromJson(Map<String, dynamic> json) =>
       _$CustomFieldFromJson(json);
+}
+
+@freezed
+class VaultAttachment with _$VaultAttachment {
+  const factory VaultAttachment({
+    required String name,
+    @Default('application/octet-stream') String mimeType,
+    required List<int> bytes,
+  }) = _VaultAttachment;
+
+  factory VaultAttachment.fromJson(Map<String, dynamic> json) =>
+      _$VaultAttachmentFromJson(json);
+}
+
+extension VaultAttachmentX on VaultAttachment {
+  String get sizeLabel {
+    final kb = bytes.length / 1024;
+    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+    return '${(kb / 1024).toStringAsFixed(1)} MB';
+  }
 }
 
 extension VaultEntryColor on EntryType {

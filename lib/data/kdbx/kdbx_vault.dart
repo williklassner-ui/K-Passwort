@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:kdbx/kdbx.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
@@ -103,8 +104,46 @@ class KdbxVault {
   }
 
   static final _notesKey = KdbxKey('Notes');
+  static final _cfKeysKey = KdbxKey('__kpa_cf_keys');
+  static final _attCountKey = KdbxKey('__kpa_att_count');
+  static const _attPrefix = '__kpa_att_';
 
   VaultEntry _mapEntry(KdbxEntry e) {
+    // Custom fields: read via manifest key
+    final cfKeysRaw = e.getString(_cfKeysKey)?.getText() ?? '';
+    final customFields = <CustomField>[];
+    if (cfKeysRaw.isNotEmpty) {
+      for (final key in cfKeysRaw.split('\n').where((s) => s.isNotEmpty)) {
+        final kdbxKey = KdbxKey(key);
+        final sv = e.getString(kdbxKey);
+        if (sv != null) {
+          customFields.add(CustomField(
+            key: key,
+            value: sv.getText() ?? '',
+            isProtected: sv is ProtectedValue,
+          ));
+        }
+      }
+    }
+
+    // Attachments: read via count key
+    final attCountStr = e.getString(_attCountKey)?.getText() ?? '0';
+    final attCount = int.tryParse(attCountStr) ?? 0;
+    final attachments = <VaultAttachment>[];
+    for (var i = 0; i < attCount; i++) {
+      final sv = e.getString(KdbxKey('$_attPrefix$i'));
+      if (sv == null) continue;
+      try {
+        final map = jsonDecode(sv.getText() ?? '') as Map<String, dynamic>;
+        final bytes = base64Decode(map['d'] as String);
+        attachments.add(VaultAttachment(
+          name: map['n'] as String? ?? 'attachment',
+          mimeType: map['m'] as String? ?? 'application/octet-stream',
+          bytes: bytes.toList(),
+        ));
+      } catch (_) {}
+    }
+
     return VaultEntry(
       id: e.uuid.uuid,
       title: e.getString(KdbxKeyCommon.TITLE)?.getText() ?? '',
@@ -113,6 +152,8 @@ class KdbxVault {
       password: e.getString(KdbxKeyCommon.PASSWORD)?.getText() ?? '',
       url: e.getString(KdbxKeyCommon.URL)?.getText() ?? '',
       notes: e.getString(_notesKey)?.getText() ?? '',
+      customFields: customFields,
+      attachments: attachments,
       createdAt: e.times.creationTime.get() ?? DateTime.now(),
       updatedAt: e.times.lastModificationTime.get() ?? DateTime.now(),
       groupId: e.parent?.uuid.uuid,
@@ -136,6 +177,20 @@ class KdbxVault {
     entry.setString(KdbxKeyCommon.URL, PlainValue(data.url));
     entry.setString(_notesKey, PlainValue(data.notes));
 
+    // Remove all existing custom fields and attachments before re-writing
+    final keysToRemove = entry.stringEntries
+        .map((kv) => kv.key)
+        .where((k) =>
+            k.key != KdbxKeyCommon.TITLE.key &&
+            k.key != KdbxKeyCommon.USER_NAME.key &&
+            k.key != KdbxKeyCommon.PASSWORD.key &&
+            k.key != KdbxKeyCommon.URL.key &&
+            k.key != 'Notes')
+        .toList();
+    for (final k in keysToRemove) {
+      entry.setString(k, null);
+    }
+
     for (final field in data.customFields) {
       final kdbxKey = KdbxKey(field.key);
       entry.setString(
@@ -144,6 +199,16 @@ class KdbxVault {
             ? ProtectedValue.fromString(field.value)
             : PlainValue(field.value),
       );
+    }
+
+    for (var i = 0; i < data.attachments.length; i++) {
+      final att = data.attachments[i];
+      final json = jsonEncode({
+        'n': att.name,
+        'm': att.mimeType,
+        'd': base64Encode(Uint8List.fromList(att.bytes)),
+      });
+      entry.setString(KdbxKey('$_attPrefix$i'), ProtectedValue.fromString(json));
     }
   }
 

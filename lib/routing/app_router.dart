@@ -41,6 +41,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.lock,
         builder: (_, __) => const LockScreen(),
       ),
+      GoRoute(
+        path: Routes.switchVault,
+        builder: (_, state) => MasterPasswordSetupScreen(
+          isCreating: false,
+          prefillUri: state.uri.queryParameters['uri'],
+          vaultName: state.uri.queryParameters['name'],
+        ),
+      ),
       ShellRoute(
         builder: (context, state, child) => VaultShell(child: child),
         routes: [

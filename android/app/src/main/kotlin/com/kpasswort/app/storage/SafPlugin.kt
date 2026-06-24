@@ -18,9 +18,10 @@ class SafPlugin(private val activity: Activity) :
         private const val REQUEST_CREATE_FILE = 1002
         private const val REQUEST_OPEN_DIR = 1003
 
-        fun register(messenger: BinaryMessenger, activity: Activity) {
+        fun register(messenger: BinaryMessenger, activity: Activity): SafPlugin {
             val plugin = SafPlugin(activity)
             MethodChannel(messenger, CHANNEL).setMethodCallHandler(plugin)
+            return plugin
         }
     }
 

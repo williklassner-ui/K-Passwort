@@ -174,7 +174,7 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                         )
                       : Text(widget.isCreating ? 'Tresor erstellen' : 'Öffnen'),
                 ),

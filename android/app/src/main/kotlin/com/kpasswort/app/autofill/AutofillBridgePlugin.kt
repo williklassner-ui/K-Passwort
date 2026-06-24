@@ -26,9 +26,7 @@ class AutofillBridgePlugin(private val context: Context) : MethodChannel.MethodC
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "isAutofillServiceEnabled" -> {
-                // Check if our AutofillService is the current default
-                val manager = context.getSystemService(Context.AUTOFILL_MANAGER_CLASS_NAME)
-                result.success(false) // Simplified; implement via AutofillManager reflection
+                result.success(false)
             }
             "openAutofillSettings" -> {
                 val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE)

@@ -16,7 +16,6 @@ import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
 import android.os.Build
-import android.service.autofill.InlineSuggestionsRequest
 
 class KPasswortAutofillService : AutofillService() {
 
@@ -40,7 +39,7 @@ class KPasswortAutofillService : AutofillService() {
 
         // We always launch the picker (authenticated selection)
         // A production implementation could cache decrypted datasets in memory
-        val intentSender = buildPickerIntentSender(fields, request.inlineSuggestionsRequest)
+        val intentSender = buildPickerIntentSender(fields)
 
         val presentation = buildPresentation("K-Passwort")
 
@@ -64,10 +63,7 @@ class KPasswortAutofillService : AutofillService() {
         callback.onSuccess()
     }
 
-    private fun buildPickerIntentSender(
-        fields: AutofillFields,
-        inlineRequest: InlineSuggestionsRequest?
-    ): IntentSender {
+    private fun buildPickerIntentSender(fields: AutofillFields): IntentSender {
         val intent = Intent(this, AutofillPickerActivity::class.java).apply {
             putExtra(AutofillPickerActivity.EXTRA_USERNAME_ID, fields.usernameId)
             putExtra(AutofillPickerActivity.EXTRA_PASSWORD_ID, fields.passwordId)

@@ -204,7 +204,7 @@ class _State extends ConsumerState<EntryEditScreen> {
 
       if (mounted) {
         context.go(widget.entryId != null
-            ? '/vault/entry/${widget.entryId}'
+            ? '/vault/entry/${Uri.encodeComponent(widget.entryId!)}'
             : Routes.vault);
       }
     } catch (e) {
@@ -276,11 +276,23 @@ class _State extends ConsumerState<EntryEditScreen> {
                   ),
                 ).animate(delay: 320.ms).fadeIn(),
                 const SizedBox(height: 8),
-                ..._customFields.asMap().entries.map((e) => _CfTile(
-                      row: e.value,
-                      onRemove: () => setState(() => _customFields.removeAt(e.key)),
-                      onChanged: () => setState(() {}),
-                    ).animate(delay: (330 + e.key * 30).ms).fadeIn()),
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _customFields.length,
+                  onReorder: (oldIdx, newIdx) {
+                    setState(() {
+                      if (newIdx > oldIdx) newIdx--;
+                      _customFields.insert(newIdx, _customFields.removeAt(oldIdx));
+                    });
+                  },
+                  itemBuilder: (_, i) => _CfTile(
+                    key: ValueKey(_customFields[i]),
+                    row: _customFields[i],
+                    onRemove: () => setState(() => _customFields.removeAt(i)),
+                    onChanged: () => setState(() {}),
+                  ),
+                ),
               ],
 
               TextButton.icon(
@@ -385,6 +397,7 @@ class _State extends ConsumerState<EntryEditScreen> {
 
 class _CfTile extends StatelessWidget {
   const _CfTile({
+    super.key,
     required this.row,
     required this.onRemove,
     required this.onChanged,
@@ -408,6 +421,9 @@ class _CfTile extends StatelessWidget {
         children: [
           Row(
             children: [
+              const Icon(Icons.drag_handle_rounded,
+                  size: 18, color: KPasswortColors.onSurfaceVariant),
+              const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   controller: row.keyCtrl,

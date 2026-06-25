@@ -58,4 +58,23 @@ class SafStorage {
         ) ??
         false;
   }
+
+  /// Write attachment bytes to a cache file and open it with an external viewer.
+  static Future<void> openAttachment(VaultAttachment att) async {
+    await _channel.invokeMethod<bool>('openAttachment', {
+      'name': att.name,
+      'mimeType': att.mimeType,
+      'bytes': Uint8List.fromList(att.bytes),
+    });
+  }
+
+  /// Prompt the user to choose a save location, then write attachment bytes there.
+  static Future<bool> saveAttachment(VaultAttachment att) async {
+    return await _channel.invokeMethod<bool>('saveAttachment', {
+      'name': att.name,
+      'mimeType': att.mimeType,
+      'bytes': Uint8List.fromList(att.bytes),
+    }) ??
+        false;
+  }
 }

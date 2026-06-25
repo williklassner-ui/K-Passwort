@@ -17,19 +17,21 @@ final vaultProvider = Provider<VaultRepository>((ref) {
 });
 
 final entriesProvider = Provider<List<VaultEntry>>((ref) {
-  return ref.watch(vaultProvider).entries;
+  ref.watch(vaultRevisionProvider);
+  return ref.watch(vaultRepositoryProvider).entries;
 });
 
 final groupsProvider = Provider<List<VaultGroup>>((ref) {
-  return ref.watch(vaultProvider).groups;
+  ref.watch(vaultRevisionProvider);
+  return ref.watch(vaultRepositoryProvider).groups;
 });
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
 final filteredEntriesProvider = Provider<List<VaultEntry>>((ref) {
+  ref.watch(vaultRevisionProvider);
   final query = ref.watch(searchQueryProvider);
-  final repo = ref.watch(vaultProvider);
-  return repo.search(query);
+  return ref.watch(vaultRepositoryProvider).search(query);
 });
 
 final selectedGroupProvider = StateProvider<String?>((ref) => null);
@@ -42,5 +44,6 @@ final groupFilteredEntriesProvider = Provider<List<VaultEntry>>((ref) {
 });
 
 final entryByIdProvider = Provider.family<VaultEntry?, String>((ref, id) {
-  return ref.watch(vaultProvider).findById(id);
+  ref.watch(vaultRevisionProvider);
+  return ref.watch(vaultRepositoryProvider).findById(id);
 });

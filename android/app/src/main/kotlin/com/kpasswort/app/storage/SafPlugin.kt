@@ -3,11 +3,13 @@ package com.kpasswort.app.storage
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.PluginRegistry
+import java.io.File
 
 class SafPlugin(private val activity: Activity) :
     MethodChannel.MethodCallHandler, PluginRegistry.ActivityResultListener {
@@ -18,6 +20,7 @@ class SafPlugin(private val activity: Activity) :
         private const val REQUEST_CREATE_FILE = 1002
         private const val REQUEST_OPEN_DIR = 1003
         private const val REQUEST_PICK_ANY = 1004
+        private const val REQUEST_SAVE_ATT = 1005
 
         fun register(messenger: BinaryMessenger, activity: Activity): SafPlugin {
             val plugin = SafPlugin(activity)
@@ -29,6 +32,7 @@ class SafPlugin(private val activity: Activity) :
     private var pendingResult: MethodChannel.Result? = null
     private var pendingOperation: String? = null
     private var pendingRequestCode: Int = 0
+    private var pendingSaveBytes: ByteArray? = null
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -54,6 +58,18 @@ class SafPlugin(private val activity: Activity) :
             "takePersistablePermission" -> {
                 val uri = call.argument<String>("uri")!!
                 takePersistablePermission(uri, result)
+            }
+            "openAttachment" -> {
+                val name = call.argument<String>("name") ?: "attachment"
+                val mimeType = call.argument<String>("mimeType") ?: "*/*"
+                val bytes = call.argument<ByteArray>("bytes")!!
+                openAttachment(name, mimeType, bytes, result)
+            }
+            "saveAttachment" -> {
+                val name = call.argument<String>("name") ?: "attachment"
+                val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                val bytes = call.argument<ByteArray>("bytes")!!
+                saveAttachment(name, mimeType, bytes, result)
             }
             else -> result.notImplemented()
         }
@@ -147,8 +163,39 @@ class SafPlugin(private val activity: Activity) :
         }
     }
 
+    private fun openAttachment(name: String, mimeType: String, bytes: ByteArray, result: MethodChannel.Result) {
+        try {
+            val cacheDir = File(activity.cacheDir, "attachments").also { it.mkdirs() }
+            val file = File(cacheDir, name)
+            file.writeBytes(bytes)
+            val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(Intent.createChooser(intent, name))
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("OPEN_FAILED", e.message, null)
+        }
+    }
+
+    private fun saveAttachment(name: String, mimeType: String, bytes: ByteArray, result: MethodChannel.Result) {
+        pendingResult = result
+        pendingRequestCode = REQUEST_SAVE_ATT
+        pendingSaveBytes = bytes
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = mimeType
+            putExtra(Intent.EXTRA_TITLE, name)
+        }
+        activity.startActivityForResult(intent, REQUEST_SAVE_ATT)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-        if (requestCode != REQUEST_OPEN_FILE && requestCode != REQUEST_CREATE_FILE && requestCode != REQUEST_PICK_ANY) return false
+        if (requestCode != REQUEST_OPEN_FILE && requestCode != REQUEST_CREATE_FILE &&
+            requestCode != REQUEST_PICK_ANY && requestCode != REQUEST_SAVE_ATT) return false
 
         val result = pendingResult ?: return false
         pendingResult = null
@@ -165,20 +212,38 @@ class SafPlugin(private val activity: Activity) :
                 } catch (_: Exception) {}
 
                 if (currentRequestCode == REQUEST_PICK_ANY) {
-                    // Return map with uri, name, mimeType for attachment picker
                     val docFile = DocumentFile.fromSingleUri(activity, uri)
                     result.success(mapOf(
                         "uri" to uri.toString(),
                         "name" to (docFile?.name ?: "attachment"),
                         "mimeType" to (activity.contentResolver.getType(uri) ?: "application/octet-stream"),
                     ))
+                } else if (currentRequestCode == REQUEST_SAVE_ATT) {
+                    val bytes = pendingSaveBytes
+                    pendingSaveBytes = null
+                    if (bytes != null) {
+                        try {
+                            activity.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("WRITE_FAILED", e.message, null)
+                        }
+                    } else {
+                        result.success(false)
+                    }
                 } else {
                     result.success(uri.toString())
                 }
             } else {
-                result.error("NO_URI", "No URI returned", null)
+                if (currentRequestCode == REQUEST_SAVE_ATT) {
+                    pendingSaveBytes = null
+                    result.success(false)
+                } else {
+                    result.error("NO_URI", "No URI returned", null)
+                }
             }
         } else {
+            pendingSaveBytes = null
             result.success(null)
         }
         return true

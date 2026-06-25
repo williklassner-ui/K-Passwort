@@ -10,6 +10,7 @@ abstract class AppConstants {
   static const String argon2SaltStorageKey = 'kpasswort_argon2_salt';
   static const String settingsStorageKey = 'kpasswort_settings';
   static const String biometricEnabledKey = 'kpasswort_biometric_enabled';
+  static const String biometricPasswordKey = 'kpasswort_biometric_password';
 
   // Password generator defaults
   static const int defaultPasswordLength = 20;

@@ -15,6 +15,7 @@ class MasterKeyManager {
 
   final FlutterSecureStorage _storage;
   SecureKey? _masterKey;
+  String? _rawPassword;
 
   bool get isUnlocked => _masterKey != null;
 
@@ -36,10 +37,12 @@ class MasterKeyManager {
 
     _masterKey?.dispose();
     _masterKey = key;
+    _rawPassword = password;
   }
 
   /// Unlock via biometric (unwraps key from Android Keystore).
-  Future<void> unlockWithBiometric() async {
+  /// Returns the stored password so the caller can re-open the KDBX on fresh start.
+  Future<String?> unlockWithBiometric() async {
     final wrappedKey = await _storage.read(key: AppConstants.wrappedKeyStorageKey);
     final iv = await _storage.read(key: AppConstants.wrappedKeyIvStorageKey);
 
@@ -49,9 +52,14 @@ class MasterKeyManager {
 
     _masterKey?.dispose();
     _masterKey = await AndroidKeystore.unwrapKey(wrappedKey: wrappedKey, iv: iv);
+
+    final password = await _storage.read(key: AppConstants.biometricPasswordKey);
+    if (password != null) _rawPassword = password;
+    return password;
   }
 
   /// Enable biometric unlock: wraps current master key with Android Keystore.
+  /// Also stores the password (encrypted by FlutterSecureStorage) for fresh-start unlock.
   Future<void> enableBiometric() async {
     if (_masterKey == null) throw StateError('Must be unlocked first');
 
@@ -60,12 +68,16 @@ class MasterKeyManager {
 
     await _storage.write(key: AppConstants.wrappedKeyStorageKey, value: wrapped['wrappedKey']);
     await _storage.write(key: AppConstants.wrappedKeyIvStorageKey, value: wrapped['iv']);
+    if (_rawPassword != null) {
+      await _storage.write(key: AppConstants.biometricPasswordKey, value: _rawPassword!);
+    }
   }
 
   Future<void> disableBiometric() async {
     await AndroidKeystore.deleteKey();
     await _storage.delete(key: AppConstants.wrappedKeyStorageKey);
     await _storage.delete(key: AppConstants.wrappedKeyIvStorageKey);
+    await _storage.delete(key: AppConstants.biometricPasswordKey);
   }
 
   Future<bool> isBiometricEnabled() async {
@@ -76,6 +88,7 @@ class MasterKeyManager {
   void lock() {
     _masterKey?.dispose();
     _masterKey = null;
+    _rawPassword = null;
   }
 
   Future<Uint8List> _getOrCreateSalt() async {

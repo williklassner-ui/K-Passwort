@@ -17,7 +17,7 @@ class EntryCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => context.go('/vault/entry/${entry.id}'),
+        onTap: () => context.go('/vault/entry/${Uri.encodeComponent(entry.id)}'),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(

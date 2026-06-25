@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
+import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
@@ -82,7 +83,7 @@ class _State extends ConsumerState<EntryDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => context.go('/vault/entry/${entry.id}/edit'),
+            onPressed: () => context.go('/vault/entry/${Uri.encodeComponent(entry.id)}/edit'),
           ),
           IconButton(
             icon: Icon(
@@ -193,6 +194,33 @@ class _State extends ConsumerState<EntryDetailScreen> {
                     subtitle: Text(att.sizeLabel, style: AppTypography.bodySmall),
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                          color: KPasswortColors.primary,
+                          tooltip: 'Öffnen',
+                          onPressed: () async {
+                            try {
+                              await SafStorage.openAttachment(att);
+                            } catch (_) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Kein Programm zum Öffnen gefunden')),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.save_alt_rounded, size: 18),
+                          color: KPasswortColors.onSurfaceVariant,
+                          tooltip: 'Speichern',
+                          onPressed: () => SafStorage.saveAttachment(att),
+                        ),
+                      ],
+                    ),
                   ),
                 ).animate(delay: (350 + e.key * 40).ms).fadeIn().slideY(begin: 0.05);
               }),

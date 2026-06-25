@@ -90,6 +90,24 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
+  Future<void> addGroup(VaultGroup group) async {
+    _vault!.addGroup(group.name, parentId: group.parentId);
+    await save();
+  }
+
+  @override
+  Future<void> updateGroup(VaultGroup group) async {
+    _vault!.updateGroup(group);
+    await save();
+  }
+
+  @override
+  Future<void> deleteGroup(String id) async {
+    _vault!.deleteGroup(id);
+    await save();
+  }
+
+  @override
   VaultEntry? findById(String id) {
     return entries.where((e) => e.id == id).firstOrNull;
   }
@@ -98,10 +116,12 @@ class VaultRepositoryImpl implements VaultRepository {
   List<VaultEntry> search(String query) {
     if (query.isEmpty) return entries;
     final q = query.toLowerCase();
-    return entries.where((e) =>
-        e.title.toLowerCase().contains(q) ||
-        e.username.toLowerCase().contains(q) ||
-        e.url.toLowerCase().contains(q) ||
-        e.notes.toLowerCase().contains(q)).toList();
+    return entries
+        .where((e) =>
+            e.title.toLowerCase().contains(q) ||
+            e.username.toLowerCase().contains(q) ||
+            e.url.toLowerCase().contains(q) ||
+            e.notes.toLowerCase().contains(q))
+        .toList();
   }
 }

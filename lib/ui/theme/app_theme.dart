@@ -5,8 +5,13 @@ import 'package:k_passwort/ui/theme/typography.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData dark() {
-    final colors = KPasswortColors.scheme;
+  static ThemeData dark({Color accent = const Color(0xFF00C6A0)}) {
+    final accentDim = Color.lerp(accent, Colors.black, 0.2)!;
+    final colors = KPasswortColors.scheme.copyWith(
+      primary: accent,
+      primaryContainer: Color.lerp(accent, Colors.black, 0.8)!,
+      onPrimaryContainer: accent,
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -29,7 +34,7 @@ class AppTheme {
 
       // Cards
       cardTheme: CardThemeData(
-        color: KPasswortColors.surface,
+        color: const Color(0xFF1C1C1E),
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -52,7 +57,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: KPasswortColors.primary, width: 1.5),
+          borderSide: BorderSide(color: accent, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -66,7 +71,7 @@ class AppTheme {
       // Elevated Button
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: KPasswortColors.primary,
+          backgroundColor: accent,
           foregroundColor: KPasswortColors.onPrimary,
           elevation: 0,
           minimumSize: const Size.fromHeight(52),
@@ -78,24 +83,24 @@ class AppTheme {
       // Text Button
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: KPasswortColors.primary,
+          foregroundColor: accent,
           textStyle: AppTypography.labelLarge,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
 
       // FAB
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: KPasswortColors.primary,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: accent,
         foregroundColor: KPasswortColors.onPrimary,
         elevation: 2,
-        shape: CircleBorder(),
+        shape: const CircleBorder(),
       ),
 
       // Chips
       chipTheme: ChipThemeData(
         backgroundColor: KPasswortColors.surfaceVariant,
-        selectedColor: KPasswortColors.primary.withOpacity(0.15),
+        selectedColor: accent.withOpacity(0.15),
         labelStyle: AppTypography.labelMedium,
         side: BorderSide(color: KPasswortColors.outline, width: 0.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -107,7 +112,7 @@ class AppTheme {
         tileColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        iconColor: KPasswortColors.primary,
+        iconColor: accent,
       ),
 
       // Divider
@@ -120,16 +125,16 @@ class AppTheme {
       // Bottom navigation
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: KPasswortColors.surface,
-        indicatorColor: KPasswortColors.primary.withOpacity(0.15),
+        indicatorColor: accent.withOpacity(0.15),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return AppTypography.labelSmall.copyWith(color: KPasswortColors.primary);
+            return AppTypography.labelSmall.copyWith(color: accent);
           }
           return AppTypography.labelSmall.copyWith(color: KPasswortColors.onSurfaceVariant);
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: KPasswortColors.primary, size: 22);
+            return IconThemeData(color: accent, size: 22);
           }
           return IconThemeData(color: KPasswortColors.onSurfaceVariant, size: 22);
         }),
@@ -139,19 +144,19 @@ class AppTheme {
 
       // Sliders
       sliderTheme: SliderThemeData(
-        activeTrackColor: KPasswortColors.primary,
+        activeTrackColor: accent,
         inactiveTrackColor: KPasswortColors.outline,
-        thumbColor: KPasswortColors.primary,
-        overlayColor: KPasswortColors.primary.withOpacity(0.1),
+        thumbColor: accent,
+        overlayColor: accent.withOpacity(0.1),
       ),
 
       // Switch
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? KPasswortColors.primary : KPasswortColors.onSurfaceVariant),
+            s.contains(WidgetState.selected) ? accent : KPasswortColors.onSurfaceVariant),
         trackColor: WidgetStateProperty.resolveWith((s) =>
             s.contains(WidgetState.selected)
-                ? KPasswortColors.primary.withOpacity(0.4)
+                ? accent.withOpacity(0.4)
                 : KPasswortColors.outline),
       ),
 

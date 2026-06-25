@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
+import 'package:k_passwort/data/models/vault_group.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
+import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
@@ -110,7 +112,38 @@ class _State extends ConsumerState<EntryDetailScreen> {
           children: [
             _TypeBadge(type: entry.type),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
+
+            // Vault name + group chips
+            Builder(builder: (ctx) {
+              final vaultName = ref.watch(currentVaultNameProvider);
+              final groups = ref.watch(groupsProvider);
+              final groupName = entry.groupId != null
+                  ? groups.firstWhere((g) => g.id == entry.groupId,
+                      orElse: () => VaultGroup(id: '', name: '')).name
+                  : '';
+              return Wrap(
+                spacing: 8,
+                children: [
+                  if (vaultName.isNotEmpty)
+                    Chip(
+                      avatar: const Icon(Icons.lock_outline_rounded, size: 14),
+                      label: Text(vaultName, style: AppTypography.labelSmall),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                    ),
+                  if (groupName.isNotEmpty)
+                    Chip(
+                      avatar: const Icon(Icons.folder_outlined, size: 14),
+                      label: Text(groupName, style: AppTypography.labelSmall),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                    ),
+                ],
+              );
+            }),
+
+            const SizedBox(height: 12),
 
             if (entry.username.isNotEmpty)
               _FieldRow(

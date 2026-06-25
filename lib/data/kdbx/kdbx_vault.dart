@@ -90,6 +90,18 @@ class KdbxVault {
     }
   }
 
+  void updateGroup(VaultGroup group) {
+    final kdbxGroup = _findGroup(group.id);
+    if (kdbxGroup == null) return;
+    kdbxGroup.name.set(group.name);
+  }
+
+  void deleteGroup(String id) {
+    final kdbxGroup = _findGroup(id);
+    if (kdbxGroup == null) return;
+    kdbxGroup.parent?.groups.remove(kdbxGroup);
+  }
+
   KdbxEntry? _findEntry(String uuid) {
     return _file.body.rootGroup
         .getAllEntries()
@@ -106,6 +118,9 @@ class KdbxVault {
   static final _notesKey = KdbxKey('Notes');
   static final _cfKeysKey = KdbxKey('__kpa_cf_keys');
   static final _attCountKey = KdbxKey('__kpa_att_count');
+  static final _tagsKey = KdbxKey('__kpa_tags');
+  static final _favoriteKey = KdbxKey('__kpa_favorite');
+  static final _typeKey = KdbxKey('__kpa_type');
   static const _attPrefix = '__kpa_att_';
 
   VaultEntry _mapEntry(KdbxEntry e) {
@@ -144,10 +159,36 @@ class KdbxVault {
       } catch (_) {}
     }
 
+    // Tags
+    final tagsJson = e.getString(_tagsKey)?.getText();
+    final tags = <Tag>[];
+    if (tagsJson != null && tagsJson.isNotEmpty) {
+      try {
+        final list = jsonDecode(tagsJson) as List;
+        for (final item in list) {
+          final m = item as Map<String, dynamic>;
+          tags.add(Tag(
+            name: m['n'] as String? ?? '',
+            iconCode: m['ic'] as int? ?? 0,
+          ));
+        }
+      } catch (_) {}
+    }
+
+    // isFavorite
+    final favStr = e.getString(_favoriteKey)?.getText();
+    final isFavorite = favStr == 'true';
+
+    // EntryType
+    final typeStr = e.getString(_typeKey)?.getText();
+    final entryType = typeStr != null
+        ? EntryType.values.where((t) => t.name == typeStr).firstOrNull ?? EntryType.login
+        : EntryType.login;
+
     return VaultEntry(
       id: e.uuid.uuid,
       title: e.getString(KdbxKeyCommon.TITLE)?.getText() ?? '',
-      type: EntryType.login,
+      type: entryType,
       username: e.getString(KdbxKeyCommon.USER_NAME)?.getText() ?? '',
       password: e.getString(KdbxKeyCommon.PASSWORD)?.getText() ?? '',
       url: e.getString(KdbxKeyCommon.URL)?.getText() ?? '',
@@ -157,6 +198,8 @@ class KdbxVault {
       createdAt: e.times.creationTime.get() ?? DateTime.now(),
       updatedAt: e.times.lastModificationTime.get() ?? DateTime.now(),
       groupId: e.parent?.uuid.uuid,
+      tags: tags,
+      isFavorite: isFavorite,
     );
   }
 
@@ -216,6 +259,22 @@ class KdbxVault {
       entry.setString(KdbxKey('$_attPrefix$i'), ProtectedValue.fromString(json));
     }
     entry.setString(_attCountKey, PlainValue(data.attachments.length.toString()));
+
+    // Tags
+    if (data.tags.isNotEmpty) {
+      final tagsJson = jsonEncode(
+        data.tags.map((t) => {'n': t.name, 'ic': t.iconCode}).toList(),
+      );
+      entry.setString(_tagsKey, PlainValue(tagsJson));
+    } else {
+      entry.setString(_tagsKey, PlainValue(''));
+    }
+
+    // isFavorite
+    entry.setString(_favoriteKey, PlainValue(data.isFavorite.toString()));
+
+    // EntryType
+    entry.setString(_typeKey, PlainValue(data.type.name));
   }
 
   static Credentials _buildCredentials(String password, Uint8List? keyFileBytes) {

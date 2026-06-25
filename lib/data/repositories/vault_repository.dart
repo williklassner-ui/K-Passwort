@@ -33,6 +33,10 @@ abstract class VaultRepository {
   Future<void> updateEntry(VaultEntry entry);
   Future<void> deleteEntry(String id);
 
+  Future<void> addGroup(VaultGroup group);
+  Future<void> updateGroup(VaultGroup group);
+  Future<void> deleteGroup(String id);
+
   VaultEntry? findById(String id);
   List<VaultEntry> search(String query);
 }

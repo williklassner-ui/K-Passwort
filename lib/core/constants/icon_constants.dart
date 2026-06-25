@@ -1,0 +1,36 @@
+import 'package:flutter/material.dart';
+
+abstract class AppIcons {
+  static const tagIcons = [
+    Icons.local_offer_rounded,
+    Icons.bookmark_rounded,
+    Icons.star_rounded,
+    Icons.favorite_rounded,
+    Icons.home_rounded,
+    Icons.work_rounded,
+    Icons.person_rounded,
+    Icons.lock_rounded,
+    Icons.key_rounded,
+    Icons.email_rounded,
+    Icons.phone_rounded,
+    Icons.shopping_cart_rounded,
+    Icons.attach_money_rounded,
+    Icons.security_rounded,
+    Icons.cloud_rounded,
+    Icons.code_rounded,
+    Icons.school_rounded,
+    Icons.travel_explore_rounded,
+    Icons.restaurant_rounded,
+    Icons.sports_esports_rounded,
+    Icons.fitness_center_rounded,
+    Icons.medical_services_rounded,
+    Icons.directions_car_rounded,
+    Icons.flight_rounded,
+    Icons.wifi_rounded,
+    Icons.credit_card_rounded,
+    Icons.note_rounded,
+    Icons.image_rounded,
+    Icons.link_rounded,
+    Icons.folder_rounded,
+  ];
+}

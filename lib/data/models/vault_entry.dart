@@ -6,6 +6,18 @@ part 'vault_entry.g.dart';
 
 enum EntryType { login, card, note, identity, sshKey, wifi, custom }
 
+enum CustomFieldType { text, password, number, email, url, username, date }
+
+@freezed
+class Tag with _$Tag {
+  const factory Tag({
+    required String name,
+    @Default(0) int iconCode,
+  }) = _Tag;
+
+  factory Tag.fromJson(Map<String, dynamic> json) => _$TagFromJson(json);
+}
+
 @freezed
 class VaultEntry with _$VaultEntry {
   const factory VaultEntry({
@@ -24,7 +36,7 @@ class VaultEntry with _$VaultEntry {
     required DateTime createdAt,
     required DateTime updatedAt,
     @Default(false) bool isFavorite,
-    @Default([]) List<String> tags,
+    @Default([]) List<Tag> tags,
   }) = _VaultEntry;
 
   factory VaultEntry.fromJson(Map<String, dynamic> json) =>
@@ -45,6 +57,8 @@ class CustomField with _$CustomField {
     required String key,
     required String value,
     @Default(false) bool isProtected,
+    @Default(CustomFieldType.text) CustomFieldType type,
+    int? iconCode,
   }) = _CustomField;
 
   factory CustomField.fromJson(Map<String, dynamic> json) =>

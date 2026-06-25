@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:k_passwort/core/constants/crypto_constants.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
+import 'package:k_passwort/features/settings/providers/theme_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/security/biometric/biometric_service.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
@@ -30,6 +31,8 @@ class _State extends ConsumerState<SettingsScreen> {
   final _bioService = BiometricService();
   bool _biometricAvailable = false;
   bool _screenshotBlocked = false;
+  int _autoLockMs = CryptoConstants.autoLockDelayMs;
+  bool _lockOnScreenOff = false;
 
   static const _screenshotKey = 'screenshot_blocked';
   static const _secureChannel = MethodChannel(CryptoConstants.secureScreenChannel);
@@ -51,6 +54,8 @@ class _State extends ConsumerState<SettingsScreen> {
       _biometricAvailable = bioAvail;
       _vaultUri = uri;
       _screenshotBlocked = prefs.getBool(_screenshotKey) ?? false;
+      _autoLockMs = prefs.getInt('auto_lock_ms') ?? CryptoConstants.autoLockDelayMs;
+      _lockOnScreenOff = prefs.getBool('lock_on_screen_off') ?? false;
     });
   }
 
@@ -78,6 +83,58 @@ class _State extends ConsumerState<SettingsScreen> {
     await channel.invokeMethod('openAutofillSettings');
   }
 
+  Future<void> _showAutoLockPicker() async {
+    const options = [
+      (-1, 'Nie'),
+      (0, 'Sofort'),
+      (30000, '30 Sekunden'),
+      (60000, '1 Minute'),
+      (300000, '5 Minuten'),
+      (900000, '15 Minuten'),
+      (1800000, '30 Minuten'),
+      (3600000, '1 Stunde'),
+    ];
+    await showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Auto-Sperre',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            ...options.map((opt) => RadioListTile<int>(
+                  title: Text(opt.$2),
+                  value: opt.$1,
+                  groupValue: _autoLockMs,
+                  onChanged: (v) async {
+                    Navigator.pop(ctx);
+                    final session = ref.read(sessionProvider.notifier);
+                    await session.setAutoLockMs(v!);
+                    setState(() => _autoLockMs = v);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _autoLockLabel(int ms) {
+    if (ms < 0) return 'Nie';
+    if (ms == 0) return 'Sofort';
+    if (ms < 60000) return '${ms ~/ 1000} Sekunden';
+    if (ms < 3600000) {
+      final mins = ms ~/ 60000;
+      return '$mins Minute${mins > 1 ? "n" : ""}';
+    }
+    return '1 Stunde';
+  }
+
   @override
   Widget build(BuildContext context) {
     return GradientScaffold(
@@ -87,7 +144,12 @@ class _State extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionHeader('Sicherheit').animate().fadeIn(),
+            _SectionHeader('Erscheinungsbild').animate().fadeIn(),
+
+            _ColorPickerTile().animate(delay: 20.ms).fadeIn(),
+
+            const SizedBox(height: 24),
+            _SectionHeader('Sicherheit').animate(delay: 40.ms).fadeIn(),
 
             _SettingsTile(
               icon: Icons.fingerprint_rounded,
@@ -122,8 +184,23 @@ class _State extends ConsumerState<SettingsScreen> {
             _SettingsTile(
               icon: Icons.lock_clock_outlined,
               title: 'Auto-Sperre',
-              subtitle: '30 Sekunden im Hintergrund',
+              subtitle: _autoLockLabel(_autoLockMs),
+              trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+              onTap: _showAutoLockPicker,
             ).animate(delay: 100.ms).fadeIn(),
+
+            _SettingsTile(
+              icon: Icons.screen_lock_portrait_outlined,
+              title: 'Bei Display aus sperren',
+              subtitle: 'Sofort sperren wenn Display ausgeht',
+              trailing: Switch(
+                value: _lockOnScreenOff,
+                onChanged: (v) async {
+                  await ref.read(sessionProvider.notifier).setLockOnScreenOff(v);
+                  setState(() => _lockOnScreenOff = v);
+                },
+              ),
+            ).animate(delay: 120.ms).fadeIn(),
 
             const SizedBox(height: 24),
             _SectionHeader('Sync').animate(delay: 150.ms).fadeIn(),
@@ -146,7 +223,7 @@ class _State extends ConsumerState<SettingsScreen> {
               onTap: () {
                 showDialog(
                   context: context,
-                  builder: (_) => AlertDialog(
+                  builder: (dialogCtx) => AlertDialog(
                     title: const Text('Google Drive Sync'),
                     content: const Text(
                       '1. Tresor-Speicherort auf einen Google Drive Ordner setzen\n\n'
@@ -156,7 +233,7 @@ class _State extends ConsumerState<SettingsScreen> {
                     ),
                     actions: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(dialogCtx),
                         child: const Text('OK'),
                       ),
                     ],
@@ -223,6 +300,56 @@ class _State extends ConsumerState<SettingsScreen> {
   }
 }
 
+class _ColorPickerTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accent = ref.watch(themeProvider);
+    const colors = [
+      Color(0xFF00C6A0), // Teal (original)
+      Color(0xFFFF9500), // Orange
+      Color(0xFF0A84FF), // Blue
+      Color(0xFFBF5AF2), // Purple
+      Color(0xFFFF453A), // Red
+      Color(0xFF32D74B), // Green
+      Color(0xFFFFD60A), // Yellow
+      Color(0xFFFF2D55), // Pink
+      Color(0xFF64D2FF), // Cyan
+      Color(0xFF30D158), // Lime green
+      Color(0xFF5E5CE6), // Indigo
+      Color(0xFFFFBF00), // Amber
+      Color(0xFFFF6B00), // Deep Orange
+      Color(0xFF50C2C9), // Light Blue
+      Color(0xFF00DDB3), // Teal Accent
+      Color(0xFFF2F2F7), // White
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: colors.map((c) {
+          final selected = accent.value == c.value;
+          return GestureDetector(
+            onTap: () => ref.read(themeProvider.notifier).setColor(c),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: c,
+                shape: BoxShape.circle,
+                border: selected ? Border.all(color: Colors.white, width: 3) : null,
+              ),
+              child: selected
+                  ? const Icon(Icons.check_rounded, size: 20, color: Colors.white)
+                  : null,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
 class _VaultListSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -274,20 +401,20 @@ class _VaultListSection extends ConsumerWidget {
                 onPressed: () async {
                   final confirmed = await showDialog<bool>(
                     context: context,
-                    builder: (_) => AlertDialog(
+                    builder: (dialogCtx) => AlertDialog(
                       title: const Text('Datenbank entfernen?'),
                       content: Text(
                         '"${v.name}" wird aus der Liste entfernt.\nDie Datei selbst wird nicht gelöscht.',
                       ),
                       actions: [
                         TextButton(
-                          onPressed: () => Navigator.pop(context, false),
+                          onPressed: () => Navigator.pop(dialogCtx, false),
                           child: const Text('Abbrechen'),
                         ),
                         TextButton(
                           style: TextButton.styleFrom(
                               foregroundColor: KPasswortColors.error),
-                          onPressed: () => Navigator.pop(context, true),
+                          onPressed: () => Navigator.pop(dialogCtx, true),
                           child: const Text('Entfernen'),
                         ),
                       ],
@@ -317,7 +444,8 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 8, 0, 8),
       child: Text(
         title.toUpperCase(),
-        style: AppTypography.labelSmall.copyWith(color: KPasswortColors.primary, letterSpacing: 1.2),
+        style: AppTypography.labelSmall
+            .copyWith(color: KPasswortColors.primary, letterSpacing: 1.2),
       ),
     );
   }
@@ -356,12 +484,12 @@ class _SettingsTile extends StatelessWidget {
         title,
         style: AppTypography.bodyMedium.copyWith(color: titleColor),
       ),
-      subtitle: subtitle != null
-          ? Text(subtitle!, style: AppTypography.bodySmall)
-          : null,
-      trailing: trailing ?? (onTap != null
-          ? const Icon(Icons.chevron_right_rounded, color: KPasswortColors.onSurfaceVariant, size: 20)
-          : null),
+      subtitle: subtitle != null ? Text(subtitle!, style: AppTypography.bodySmall) : null,
+      trailing: trailing ??
+          (onTap != null
+              ? const Icon(Icons.chevron_right_rounded,
+                  color: KPasswortColors.onSurfaceVariant, size: 20)
+              : null),
       onTap: onTap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );

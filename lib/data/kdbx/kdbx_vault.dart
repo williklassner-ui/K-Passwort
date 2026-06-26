@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:argon2_ffi_base/argon2_ffi_base.dart';
 import 'package:kdbx/kdbx.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
@@ -10,7 +11,13 @@ class KdbxVault {
   KdbxVault._(this._file);
 
   final KdbxFile _file;
-  static final _format = KdbxFormat();
+  // Wire the native Argon2id FFI implementation. Without it the kdbx package
+  // falls back to a pure-Dart (pointycastle) Argon2 that runs the KDF on the
+  // UI isolate and takes many seconds, freezing the unlock spinner. The FFI
+  // implementation computes the same Argon2id KDF natively in a fraction of
+  // the time. If the native library is unavailable kdbx still falls back to
+  // the pure-Dart path, so this is safe.
+  static final _format = KdbxFormat(Argon2FfiFlutter());
 
   static Future<KdbxVault> create({
     required String masterPassword,

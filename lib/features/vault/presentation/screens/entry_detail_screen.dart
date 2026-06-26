@@ -43,17 +43,17 @@ class _State extends ConsumerState<EntryDetailScreen> {
   Future<void> _deleteEntry(VaultEntry entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('Eintrag löschen?'),
         content: Text('"${entry.title}" wird dauerhaft gelöscht.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogCtx, false),
             child: const Text('Abbrechen'),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: KPasswortColors.error),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogCtx, true),
             child: const Text('Löschen'),
           ),
         ],
@@ -68,6 +68,7 @@ class _State extends ConsumerState<EntryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final entry = ref.watch(entryByIdProvider(widget.entryId));
+    final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight + 8;
 
     if (entry == null) {
       return const Scaffold(body: Center(child: Text('Eintrag nicht gefunden')));
@@ -106,7 +107,7 @@ class _State extends ConsumerState<EntryDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 80, 20, 40),
+        padding: EdgeInsets.fromLTRB(20, topPadding, 20, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -119,8 +120,10 @@ class _State extends ConsumerState<EntryDetailScreen> {
               final vaultName = ref.watch(currentVaultNameProvider);
               final groups = ref.watch(groupsProvider);
               final groupName = entry.groupId != null
-                  ? groups.firstWhere((g) => g.id == entry.groupId,
-                      orElse: () => VaultGroup(id: '', name: '')).name
+                  ? groups
+                      .firstWhere((g) => g.id == entry.groupId,
+                          orElse: () => VaultGroup(id: '', name: ''))
+                      .name
                   : '';
               return Wrap(
                 spacing: 8,
@@ -203,59 +206,65 @@ class _State extends ConsumerState<EntryDetailScreen> {
 
             if (entry.attachments.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text(
-                'ANHÄNGE',
-                style: AppTypography.labelSmall.copyWith(
-                  color: KPasswortColors.primary,
-                  letterSpacing: 1.2,
-                ),
-              ).animate(delay: 340.ms).fadeIn(),
+              Builder(builder: (ctx) {
+                final accent = Theme.of(ctx).colorScheme.primary;
+                return Text(
+                  'ANHÄNGE',
+                  style: AppTypography.labelSmall.copyWith(
+                    color: accent,
+                    letterSpacing: 1.2,
+                  ),
+                );
+              }).animate(delay: 340.ms).fadeIn(),
               const SizedBox(height: 8),
               ...entry.attachments.asMap().entries.map((e) {
                 final att = e.value;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: KPasswortColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: KPasswortColors.outline, width: 0.5),
-                  ),
-                  child: ListTile(
-                    leading: const Icon(Icons.attach_file_rounded,
-                        color: KPasswortColors.primary, size: 20),
-                    title: Text(att.name, style: AppTypography.bodyMedium),
-                    subtitle: Text(att.sizeLabel, style: AppTypography.bodySmall),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                          color: KPasswortColors.primary,
-                          tooltip: 'Öffnen',
-                          onPressed: () async {
-                            try {
-                              await SafStorage.openAttachment(att);
-                            } catch (_) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Kein Programm zum Öffnen gefunden')),
-                                );
-                              }
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.save_alt_rounded, size: 18),
-                          color: KPasswortColors.onSurfaceVariant,
-                          tooltip: 'Speichern',
-                          onPressed: () => SafStorage.saveAttachment(att),
-                        ),
-                      ],
+                return Builder(builder: (ctx) {
+                  final accent = Theme.of(ctx).colorScheme.primary;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: KPasswortColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: KPasswortColors.outline, width: 0.5),
                     ),
-                  ),
-                ).animate(delay: (350 + e.key * 40).ms).fadeIn().slideY(begin: 0.05);
+                    child: ListTile(
+                      leading: Icon(Icons.attach_file_rounded, color: accent, size: 20),
+                      title: Text(att.name, style: AppTypography.bodyMedium),
+                      subtitle: Text(att.sizeLabel, style: AppTypography.bodySmall),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                            color: accent,
+                            tooltip: 'Öffnen',
+                            onPressed: () async {
+                              try {
+                                await SafStorage.openAttachment(att);
+                              } catch (_) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Kein Programm zum Öffnen gefunden')),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.save_alt_rounded, size: 18),
+                            color: KPasswortColors.onSurfaceVariant,
+                            tooltip: 'Speichern',
+                            onPressed: () => SafStorage.saveAttachment(att),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ).animate(delay: (350 + e.key * 40).ms).fadeIn().slideY(begin: 0.05);
+                });
               }),
             ],
 
@@ -314,6 +323,7 @@ class _FieldRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -322,7 +332,7 @@ class _FieldRow extends StatelessWidget {
         border: Border.all(color: KPasswortColors.outline, width: 0.5),
       ),
       child: ListTile(
-        leading: Icon(icon, color: KPasswortColors.primary, size: 20),
+        leading: Icon(icon, color: accent, size: 20),
         title: Text(label, style: AppTypography.labelSmall),
         subtitle: Text(value, style: AppTypography.bodyMedium),
         trailing: IconButton(
@@ -354,6 +364,7 @@ class _PasswordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -362,8 +373,7 @@ class _PasswordRow extends StatelessWidget {
         border: Border.all(color: KPasswortColors.outline, width: 0.5),
       ),
       child: ListTile(
-        leading: const Icon(Icons.lock_outline_rounded,
-            color: KPasswortColors.primary, size: 20),
+        leading: Icon(Icons.lock_outline_rounded, color: accent, size: 20),
         title: Text(label, style: AppTypography.labelSmall),
         subtitle: ExcludeSemantics(
           child: Text(
@@ -421,8 +431,7 @@ class _NotesSection extends StatelessWidget {
         children: [
           Text('Notizen', style: AppTypography.labelSmall),
           const SizedBox(height: 8),
-          Text(notes,
-              style: AppTypography.bodyMedium.copyWith(height: 1.5)),
+          Text(notes, style: AppTypography.bodyMedium.copyWith(height: 1.5)),
         ],
       ),
     );

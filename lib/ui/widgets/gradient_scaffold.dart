@@ -21,6 +21,8 @@ class GradientScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final gradientCenter = Color.lerp(primary, Colors.black, 0.88)!;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: appBar,
@@ -29,14 +31,11 @@ class GradientScaffold extends StatelessWidget {
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       body: showGradient
           ? Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: Alignment(0.7, -0.8),
+                  center: const Alignment(0.7, -0.8),
                   radius: 1.2,
-                  colors: [
-                    Color(0xFF001A15),
-                    KPasswortColors.background,
-                  ],
+                  colors: [gradientCenter, KPasswortColors.background],
                 ),
               ),
               child: body,

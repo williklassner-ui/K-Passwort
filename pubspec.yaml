@@ -24,6 +24,7 @@ dependencies:
   # Crypto
   pointycastle: ^3.9.1
   argon2_ffi_base: ^1.0.0
+  argon2_ffi: ^1.0.0          # native Argon2id (libargon2_ffi.so) — avoids slow pure-Dart KDF
   cryptography: ^2.7.0
 
   # Secure storage & biometrics

@@ -24,10 +24,17 @@ class VaultShell extends ConsumerWidget {
     if (location.startsWith(Routes.generator)) selectedIndex = 1;
     if (location.startsWith(Routes.settings)) selectedIndex = 2;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        // Only intercept the hardware back button on the top-level tabs.
+        // For pushed sub-routes (entry detail/edit) return false so go_router
+        // and any inner PopScope (e.g. discard-changes prompt) handle the pop.
+        final loc = GoRouterState.of(context).uri.path;
+        final atTopLevel = loc == Routes.vault ||
+            loc == Routes.generator ||
+            loc == Routes.settings;
+        if (!atTopLevel) return false;
+
         final exit = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -46,6 +53,7 @@ class VaultShell extends ConsumerWidget {
           ),
         );
         if (exit == true) SystemNavigator.pop();
+        return true;
       },
       child: Scaffold(
         body: child,

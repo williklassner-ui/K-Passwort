@@ -148,16 +148,18 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Widget build(BuildContext context) {
     // While checking stored vault, show loading
     if (_storedUri == null && _error == null) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF000000),
+      return Scaffold(
+        backgroundColor: const Color(0xFF000000),
         body: Center(
           child: CircularProgressIndicator(
-            color: Color(0xFF00C6A0),
+            color: Theme.of(context).colorScheme.primary,
             strokeWidth: 2.5,
           ),
         ),
       );
     }
+
+    final accent = Theme.of(context).colorScheme.primary;
 
     return GradientScaffold(
       showGradient: true,
@@ -173,12 +175,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: KPasswortColors.primary.withOpacity(0.1),
+                  color: accent.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.lock_outline_rounded,
-                  color: KPasswortColors.primary,
+                  color: accent,
                   size: 40,
                 ),
               ).animate().scale(

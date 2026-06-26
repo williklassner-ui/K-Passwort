@@ -12,7 +12,6 @@ class KdbxVault {
   final KdbxFile _file;
   static final _format = KdbxFormat();
 
-  /// Create a new empty KDBX vault.
   static Future<KdbxVault> create({
     required String masterPassword,
     Uint8List? keyFileBytes,
@@ -26,7 +25,6 @@ class KdbxVault {
     return KdbxVault._(file);
   }
 
-  /// Open an existing KDBX file from bytes.
   static Future<KdbxVault> open({
     required Uint8List data,
     required String masterPassword,
@@ -37,7 +35,6 @@ class KdbxVault {
     return KdbxVault._(file);
   }
 
-  /// Open using a pre-derived SecureKey (biometric unlock).
   static Future<KdbxVault> openWithKey({
     required Uint8List data,
     required SecureKey masterKey,
@@ -47,8 +44,6 @@ class KdbxVault {
     return KdbxVault._(file);
   }
 
-  /// Serialize the vault to bytes for saving.
-  /// kdbx 2.4.2 save() uses a writer callback; the KdbxFile holds credentials.
   Future<Uint8List> encode() async {
     late Uint8List output;
     await _format.save(_file, (bytes) async {
@@ -117,6 +112,7 @@ class KdbxVault {
 
   static final _notesKey = KdbxKey('Notes');
   static final _cfKeysKey = KdbxKey('__kpa_cf_keys');
+  static final _cfMetaKey = KdbxKey('__kpa_cf_meta');
   static final _attCountKey = KdbxKey('__kpa_att_count');
   static final _tagsKey = KdbxKey('__kpa_tags');
   static final _favoriteKey = KdbxKey('__kpa_favorite');
@@ -124,6 +120,15 @@ class KdbxVault {
   static const _attPrefix = '__kpa_att_';
 
   VaultEntry _mapEntry(KdbxEntry e) {
+    // Custom field metadata (type, iconCode) stored as JSON map keyed by field name
+    final cfMetaRaw = e.getString(_cfMetaKey)?.getText();
+    Map<String, dynamic> cfMeta = {};
+    if (cfMetaRaw != null && cfMetaRaw.isNotEmpty) {
+      try {
+        cfMeta = jsonDecode(cfMetaRaw) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+
     // Custom fields: read via manifest key
     final cfKeysRaw = e.getString(_cfKeysKey)?.getText() ?? '';
     final customFields = <CustomField>[];
@@ -132,10 +137,20 @@ class KdbxVault {
         final kdbxKey = KdbxKey(key);
         final sv = e.getString(kdbxKey);
         if (sv != null) {
+          final meta = cfMeta[key] as Map<String, dynamic>?;
+          final fieldType = meta != null
+              ? CustomFieldType.values
+                      .where((t) => t.name == meta['t'])
+                      .firstOrNull ??
+                  CustomFieldType.text
+              : CustomFieldType.text;
+          final iconCode = meta?['ic'] as int?;
           customFields.add(CustomField(
             key: key,
             value: sv.getText() ?? '',
             isProtected: sv is ProtectedValue,
+            type: fieldType,
+            iconCode: iconCode,
           ));
         }
       }
@@ -182,7 +197,8 @@ class KdbxVault {
     // EntryType
     final typeStr = e.getString(_typeKey)?.getText();
     final entryType = typeStr != null
-        ? EntryType.values.where((t) => t.name == typeStr).firstOrNull ?? EntryType.login
+        ? EntryType.values.where((t) => t.name == typeStr).firstOrNull ??
+            EntryType.login
         : EntryType.login;
 
     return VaultEntry(
@@ -220,7 +236,7 @@ class KdbxVault {
     entry.setString(KdbxKeyCommon.URL, PlainValue(data.url));
     entry.setString(_notesKey, PlainValue(data.notes));
 
-    // Remove all existing custom fields and attachments before re-writing
+    // Remove all existing custom/meta fields before re-writing
     final keysToRemove = entry.stringEntries
         .map((kv) => kv.key)
         .where((k) =>
@@ -243,11 +259,22 @@ class KdbxVault {
             : PlainValue(field.value),
       );
     }
-    // Write manifest so _mapEntry can locate these fields on read-back
+    // Manifest of custom field keys
     entry.setString(
       _cfKeysKey,
       PlainValue(data.customFields.map((f) => f.key).join('\n')),
     );
+
+    // Custom field metadata (type + iconCode)
+    if (data.customFields.isNotEmpty) {
+      final meta = <String, dynamic>{};
+      for (final field in data.customFields) {
+        meta[field.key] = {'t': field.type.name, 'ic': field.iconCode};
+      }
+      entry.setString(_cfMetaKey, PlainValue(jsonEncode(meta)));
+    } else {
+      entry.setString(_cfMetaKey, PlainValue(''));
+    }
 
     for (var i = 0; i < data.attachments.length; i++) {
       final att = data.attachments[i];
@@ -270,10 +297,8 @@ class KdbxVault {
       entry.setString(_tagsKey, PlainValue(''));
     }
 
-    // isFavorite
+    // isFavorite + EntryType
     entry.setString(_favoriteKey, PlainValue(data.isFavorite.toString()));
-
-    // EntryType
     entry.setString(_typeKey, PlainValue(data.type.name));
   }
 

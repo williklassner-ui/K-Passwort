@@ -223,6 +223,109 @@ class _State extends ConsumerState<EntryEditScreen> {
     }
   }
 
+  Future<void> _editTag(int index) async {
+    final accent = Theme.of(context).colorScheme.primary;
+    final current = _tags[index];
+    String name = current.name;
+    int iconCode = current.iconCode;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Tag bearbeiten'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Name'),
+                  controller: TextEditingController(text: name),
+                  onChanged: (v) => name = v,
+                  autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: AppIcons.tagIcons.map((icon) {
+                    final isSelected = iconCode == icon.codePoint;
+                    return GestureDetector(
+                      onTap: () => setDlgState(() => iconCode = icon.codePoint),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? accent.withOpacity(0.2)
+                              : KPasswortColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(8),
+                          border: isSelected ? Border.all(color: accent) : null,
+                        ),
+                        child: Icon(icon, size: 18),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Abbrechen'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Speichern'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed == true && name.isNotEmpty) {
+      setState(() => _tags[index] = Tag(name: name, iconCode: iconCode));
+    }
+  }
+
+  Future<void> _createNewLabel() async {
+    final nameCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Neues Label'),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: const InputDecoration(labelText: 'Name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Erstellen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && nameCtrl.text.isNotEmpty && mounted) {
+      final repo = ref.read(vaultRepositoryProvider);
+      final labelName = nameCtrl.text.trim();
+      await repo.addGroup(VaultGroup(id: const Uuid().v4(), name: labelName));
+      // The real KDBX group ID is auto-assigned; find it by name
+      final newGroup = repo.groups.lastWhere(
+        (g) => g.name == labelName,
+        orElse: () => VaultGroup(id: '', name: labelName),
+      );
+      ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
+      if (mounted && newGroup.id.isNotEmpty) {
+        setState(() => _groupId = newGroup.id);
+      }
+    }
+  }
+
   Future<void> _addTag() async {
     final accent = Theme.of(context).colorScheme.primary;
     String name = '';
@@ -415,6 +518,7 @@ class _State extends ConsumerState<EntryEditScreen> {
     final isNew = widget.entryId == null;
     final groups = ref.watch(groupsProvider);
     final accent = Theme.of(context).colorScheme.primary;
+    final validGroupId = groups.any((g) => g.id == _groupId) ? _groupId : null;
     final topPadding =
         MediaQuery.of(context).padding.top + kToolbarHeight + 8;
 
@@ -433,15 +537,23 @@ class _State extends ConsumerState<EntryEditScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: accent),
-                    )
-                  : const Text('Speichern'),
+              onPressed: _saving ? null : _handleBack,
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Abbrechen'),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Speichern'),
+              ),
             ),
           ],
         ),
@@ -462,16 +574,30 @@ class _State extends ConsumerState<EntryEditScreen> {
 
               const SizedBox(height: 16),
 
-              // Category dropdown — always visible
+              // Label dropdown — always visible
               DropdownButtonFormField<String?>(
-                value: _groupId,
-                decoration: const InputDecoration(labelText: 'Kategorie'),
+                value: validGroupId,
+                decoration: const InputDecoration(labelText: 'Label'),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('Keine')),
                   ...groups.map((g) =>
                       DropdownMenuItem(value: g.id, child: Text(g.name))),
+                  DropdownMenuItem(
+                    value: '__new__',
+                    child: Row(children: const [
+                      Icon(Icons.add_rounded, size: 16),
+                      SizedBox(width: 8),
+                      Text('Neues Label erstellen...'),
+                    ]),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _groupId = v),
+                onChanged: (v) async {
+                  if (v == '__new__') {
+                    await _createNewLabel();
+                    return;
+                  }
+                  setState(() => _groupId = v);
+                },
               ).animate(delay: 50.ms).fadeIn(),
               const SizedBox(height: 14),
 
@@ -518,7 +644,7 @@ class _State extends ConsumerState<EntryEditScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  ..._tags.asMap().entries.map((e) => Chip(
+                  ..._tags.asMap().entries.map((e) => InputChip(
                         avatar: e.value.iconCode != 0
                             ? Icon(
                                 IconData(e.value.iconCode,
@@ -527,6 +653,7 @@ class _State extends ConsumerState<EntryEditScreen> {
                               )
                             : null,
                         label: Text(e.value.name),
+                        onPressed: () => _editTag(e.key),
                         onDeleted: () =>
                             setState(() => _tags.removeAt(e.key)),
                       )),
@@ -597,15 +724,6 @@ class _State extends ConsumerState<EntryEditScreen> {
               ).animate(delay: 380.ms).fadeIn(),
 
               const SizedBox(height: 40),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _save,
-                  child: Text(
-                      isNew ? 'Eintrag erstellen' : 'Änderungen speichern'),
-                ),
-              ).animate(delay: 400.ms).fadeIn(),
             ],
           ),
         ),
@@ -619,6 +737,7 @@ class _State extends ConsumerState<EntryEditScreen> {
     if (row is _StdFieldRow) {
       final bool isPassword = row.kind == _StdFieldKind.password;
       final Widget inner = _buildStdContent(context, row.kind, accent);
+      final ctrl = _ctrlForKind(row.kind);
 
       return Padding(
         key: ValueKey('std_${row.kind.name}'),
@@ -628,16 +747,23 @@ class _State extends ConsumerState<EntryEditScreen> {
               ? CrossAxisAlignment.start
               : CrossAxisAlignment.center,
           children: [
+            Expanded(child: inner),
+            if (ctrl != null)
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 16),
+                color: KPasswortColors.onSurfaceVariant,
+                tooltip: 'Leeren',
+                onPressed: () => setState(() => ctrl.clear()),
+              ),
             ReorderableDragStartListener(
               index: index,
               child: Padding(
                 padding: EdgeInsets.only(
-                    right: 8, top: isPassword ? 16 : 0),
+                    left: 4, top: isPassword ? 16 : 0),
                 child: const Icon(Icons.drag_handle_rounded,
                     size: 18, color: KPasswortColors.onSurfaceVariant),
               ),
             ),
-            Expanded(child: inner),
           ],
         ),
       );
@@ -655,6 +781,14 @@ class _State extends ConsumerState<EntryEditScreen> {
 
     return SizedBox.shrink(key: ValueKey('empty_$index'));
   }
+
+  TextEditingController? _ctrlForKind(_StdFieldKind kind) => switch (kind) {
+        _StdFieldKind.title => _titleCtrl,
+        _StdFieldKind.username => _userCtrl,
+        _StdFieldKind.password => _passCtrl,
+        _StdFieldKind.url => _urlCtrl,
+        _StdFieldKind.notes => _notesCtrl,
+      };
 
   Widget _buildStdContent(
       BuildContext context, _StdFieldKind kind, Color accent) {
@@ -708,10 +842,7 @@ class _State extends ConsumerState<EntryEditScreen> {
     return TextField(
       controller: ctrl,
       maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 20),
-      ),
+      decoration: InputDecoration(labelText: label),
     );
   }
 }
@@ -893,14 +1024,6 @@ class _CfTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: Icon(Icons.drag_handle_rounded,
-                      size: 18, color: KPasswortColors.onSurfaceVariant),
-                ),
-              ),
               Expanded(
                 child: TextField(
                   controller: row.keyCtrl,
@@ -909,11 +1032,19 @@ class _CfTile extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded, size: 18),
                 color: KPasswortColors.error,
                 onPressed: onRemove,
+              ),
+              ReorderableDragStartListener(
+                index: index,
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.drag_handle_rounded,
+                      size: 18, color: KPasswortColors.onSurfaceVariant),
+                ),
               ),
             ],
           ),

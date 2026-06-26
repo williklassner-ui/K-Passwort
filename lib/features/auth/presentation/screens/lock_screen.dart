@@ -52,19 +52,19 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   }
 
   Future<void> _tryBiometric() async {
-    final repo = ref.read(vaultRepositoryProvider);
-    // Biometric only re-unlocks a session where vault is already in memory.
-    // After a fresh app start the KDBX file must be opened with the password.
-    if (!repo.isOpen) return;
-
     final keyManager = ref.read(masterKeyManagerProvider);
     if (!await keyManager.isBiometricEnabled()) return;
+    if (_storedUri == null) return;
 
     setState(() { _loading = true; _error = null; });
     try {
       final password = await keyManager.unlockWithBiometric();
+      if (password == null) {
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
       final repo = ref.read(vaultRepositoryProvider);
-      if (!repo.isOpen && password != null && _storedUri != null) {
+      if (!repo.isOpen) {
         await repo.open(vaultUri: _storedUri!, masterPassword: password);
       }
       if (repo.isOpen) {

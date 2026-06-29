@@ -101,7 +101,10 @@ class KdbxVault {
   void addGroup(String name, {String? parentId}) {
     final parent = parentId != null ? _findGroup(parentId) : _file.body.rootGroup;
     if (parent != null) {
-      KdbxGroup.create(ctx: _file.ctx, parent: parent, name: name);
+      // Use the file API so the group is actually attached to its parent.
+      // KdbxGroup.create() alone leaves the group orphaned (never in
+      // rootGroup.groups), so created categories never appeared.
+      _file.createGroup(parent: parent, name: name);
     }
   }
 

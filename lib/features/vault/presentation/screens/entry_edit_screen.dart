@@ -519,8 +519,10 @@ class _State extends ConsumerState<EntryEditScreen> {
     final groups = ref.watch(groupsProvider);
     final accent = Theme.of(context).colorScheme.primary;
     final validGroupId = groups.any((g) => g.id == _groupId) ? _groupId : null;
+    // AppBar is taller than kToolbarHeight because of the filled "Speichern"
+    // button, so add extra clearance to keep the type selector visible.
     final topPadding =
-        MediaQuery.of(context).padding.top + kToolbarHeight + 8;
+        MediaQuery.of(context).padding.top + kToolbarHeight + 24;
 
     return PopScope(
       canPop: false,

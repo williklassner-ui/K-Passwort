@@ -39,4 +39,12 @@ abstract class VaultRepository {
 
   VaultEntry? findById(String id);
   List<VaultEntry> search(String query);
+
+  /// Creates a new optimized (fast native Argon2id) vault at [newUri],
+  /// copies all current groups and entries into it, writes it, and switches
+  /// the active vault to the new file.
+  Future<void> migrateToNewVault({
+    required String newUri,
+    required String masterPassword,
+  });
 }

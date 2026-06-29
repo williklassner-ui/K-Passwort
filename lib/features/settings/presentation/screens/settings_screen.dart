@@ -9,6 +9,7 @@ import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/settings/providers/theme_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
+import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/security/biometric/biometric_service.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
 import 'package:k_passwort/security/keystore/session_manager.dart';
@@ -124,6 +125,103 @@ class _State extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _migrateToFastDb() async {
+    // 1. Explain what happens.
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Auf schnelle Datenbank migrieren'),
+        content: const Text(
+          'Es wird eine neue, optimierte .kdbx-Datei mit allen Einträgen und '
+          'Kategorien erstellt (schnelles natives Argon2id). Anschließend wird '
+          'die App auf die neue Datenbank umgestellt.\n\n'
+          'Verwende dasselbe Master-Passwort, damit die biometrische Entsperrung '
+          'weiterhin funktioniert.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Weiter'),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true || !mounted) return;
+
+    // 2. Master password for the new file.
+    final pwCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Master-Passwort'),
+        content: TextField(
+          controller: pwCtrl,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Master-Passwort'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Migrieren'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || pwCtrl.text.isEmpty || !mounted) return;
+
+    // 3. Pick a destination file.
+    final newUri = await SafStorage.createKdbxFile('vault-fast.kdbx');
+    if (newUri == null || !mounted) return;
+    await SafStorage.takePersistablePermission(newUri);
+
+    // 4. Migrate.
+    try {
+      await ref.read(vaultRepositoryProvider).migrateToNewVault(
+            newUri: newUri,
+            masterPassword: pwCtrl.text,
+          );
+      await SyncStateNotifier.saveVaultUri(newUri);
+      final name = await _vaultName(newUri);
+      await ref.read(vaultListProvider.notifier).add(VaultDescriptor(
+            name: name,
+            uri: newUri,
+            lastOpened: DateTime.now(),
+          ));
+      ref.read(currentVaultUriProvider.notifier).state = newUri;
+      ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
+      setState(() => _vaultUri = newUri);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Migration abgeschlossen — schnelle Datenbank aktiv')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Migration fehlgeschlagen: $e')),
+        );
+      }
+    }
+  }
+
+  Future<String> _vaultName(String uri) async {
+    try {
+      final info = await SafStorage.getFileInfo(uri);
+      return (info?['name'] as String?) ?? 'vault-fast.kdbx';
+    } catch (_) {
+      return 'vault-fast.kdbx';
+    }
+  }
+
   String _autoLockLabel(int ms) {
     if (ms < 0) return 'Nie';
     if (ms == 0) return 'Sofort';
@@ -137,10 +235,11 @@ class _State extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight + 16;
     return GradientScaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 80, 16, 40),
+        padding: EdgeInsets.fromLTRB(16, topPadding, 16, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -273,6 +372,13 @@ class _State extends ConsumerState<SettingsScreen> {
               onTap: () => context.go(Routes.onboardingCreateVault),
             ).animate(delay: 395.ms).fadeIn(),
 
+            _SettingsTile(
+              icon: Icons.bolt_rounded,
+              title: 'Auf schnelle Datenbank migrieren',
+              subtitle: 'Optimierte Kopie aller Einträge erstellen',
+              onTap: _migrateToFastDb,
+            ).animate(delay: 398.ms).fadeIn(),
+
             const SizedBox(height: 24),
             _SectionHeader('Sitzung').animate(delay: 400.ms).fadeIn(),
 
@@ -289,7 +395,7 @@ class _State extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 32),
             Center(
               child: Text(
-                'K-Passwort Beta 0.5 — KDBX 4.x kompatibel',
+                'K-Passwort Beta 0.5.1 — KDBX 4.x kompatibel',
                 style: AppTypography.bodySmall,
               ).animate(delay: 500.ms).fadeIn(),
             ),

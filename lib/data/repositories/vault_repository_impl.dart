@@ -113,6 +113,49 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
+  Future<void> migrateToNewVault({
+    required String newUri,
+    required String masterPassword,
+  }) async {
+    if (_vault == null) throw const StorageFailure('Kein Tresor geöffnet');
+
+    // Snapshot current data.
+    final oldGroups = _vault!.groups;
+    final oldEntries = _vault!.entries;
+
+    // Build the new, fast Argon2id vault.
+    final newVault = await KdbxVault.create(masterPassword: masterPassword);
+
+    // Recreate groups and map old group id -> new group id (matched by name).
+    final idByOldId = <String, String>{};
+    for (final g in oldGroups) {
+      newVault.addGroup(g.name);
+      final created = newVault.groups.lastWhere(
+        (ng) => ng.name == g.name,
+        orElse: () => g,
+      );
+      idByOldId[g.id] = created.id;
+    }
+
+    // Recreate entries, remapping their group assignment.
+    for (final e in oldEntries) {
+      final newGroupId = e.groupId != null ? idByOldId[e.groupId] : null;
+      newVault.addEntry(e.copyWith(groupId: newGroupId));
+    }
+
+    // Persist the new vault to its file.
+    final bytes = await newVault.encode();
+    final ok = await SafStorage.writeFile(newUri, bytes);
+    if (!ok) {
+      throw const StorageFailure('Neue Datenbank konnte nicht gespeichert werden');
+    }
+
+    // Switch the active vault to the new file.
+    _vault = newVault;
+    _currentUri = newUri;
+  }
+
+  @override
   List<VaultEntry> search(String query) {
     if (query.isEmpty) return entries;
     final q = query.toLowerCase();

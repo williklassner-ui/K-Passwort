@@ -29,7 +29,7 @@ final groupsProvider = Provider<List<VaultGroup>>((ref) {
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
-enum SortOrder { titleAZ, titleZA, newestFirst, oldestFirst, byType }
+enum SortOrder { titleAZ, titleZA, newestFirst, oldestFirst, byType, bySize }
 
 final sortOrderProvider = StateProvider<SortOrder>((_) => SortOrder.titleAZ);
 
@@ -54,6 +54,8 @@ List<VaultEntry> _sortEntries(List<VaultEntry> entries, SortOrder order) {
       sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     case SortOrder.byType:
       sorted.sort((a, b) => a.type.index.compareTo(b.type.index));
+    case SortOrder.bySize:
+      sorted.sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
   }
   return sorted;
 }
@@ -104,3 +106,9 @@ final currentVaultNameProvider = Provider<String>((ref) {
   final vaults = ref.watch(vaultListProvider);
   return vaults.firstWhere((v) => v.uri == uri, orElse: () => VaultDescriptor(name: '', uri: uri, lastOpened: DateTime.now())).name;
 });
+
+/// Whether the vault home screen is in multi-select mode.
+final selectionModeProvider = StateProvider<bool>((ref) => false);
+
+/// IDs of entries currently selected in multi-select mode.
+final selectedEntryIdsProvider = StateProvider<Set<String>>((ref) => {});

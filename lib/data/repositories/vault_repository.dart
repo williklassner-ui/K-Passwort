@@ -47,4 +47,15 @@ abstract class VaultRepository {
     required String newUri,
     required String masterPassword,
   });
+
+  /// Move or copy [entryIds] from the currently open vault into the vault at
+  /// [targetUri]. Opens the target as a separate vault instance, appends the
+  /// entries, and writes it back — the currently open vault stays active.
+  /// If [move] is true, the entries are also deleted from the source vault.
+  Future<void> transferEntriesToVault({
+    required List<String> entryIds,
+    required String targetUri,
+    required String targetMasterPassword,
+    required bool move,
+  });
 }

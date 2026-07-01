@@ -14,8 +14,10 @@ import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
+import 'package:k_passwort/ui/widgets/saving_overlay.dart';
 import 'package:k_passwort/ui/widgets/secure_text_field.dart';
 import 'package:uuid/uuid.dart';
+import 'package:image_picker/image_picker.dart';
 
 // --- Unified row type hierarchy ---
 
@@ -192,6 +194,38 @@ class _State extends ConsumerState<EntryEditScreen> {
     }
   }
 
+  Future<void> _addPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded),
+              title: const Text('Kamera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Galerie'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final file = await ImagePicker().pickImage(source: source);
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    setState(() => _attachments.add(VaultAttachment(
+          name: file.name,
+          mimeType: 'image/jpeg',
+          bytes: bytes.toList(),
+        )));
+  }
+
   Future<void> _renameAttachment(int index) async {
     final att = _attachments[index];
     final controller = TextEditingController(text: att.name);
@@ -292,7 +326,7 @@ class _State extends ConsumerState<EntryEditScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Neues Label'),
+        title: const Text('Neue Gruppe'),
         content: TextField(
           controller: nameCtrl,
           decoration: const InputDecoration(labelText: 'Name'),
@@ -311,6 +345,7 @@ class _State extends ConsumerState<EntryEditScreen> {
       ),
     );
     if (confirmed == true && nameCtrl.text.isNotEmpty && mounted) {
+      setState(() => _saving = true);
       final repo = ref.read(vaultRepositoryProvider);
       final labelName = nameCtrl.text.trim();
       await repo.addGroup(VaultGroup(id: const Uuid().v4(), name: labelName));
@@ -320,8 +355,11 @@ class _State extends ConsumerState<EntryEditScreen> {
         orElse: () => VaultGroup(id: '', name: labelName),
       );
       ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
-      if (mounted && newGroup.id.isNotEmpty) {
-        setState(() => _groupId = newGroup.id);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          if (newGroup.id.isNotEmpty) _groupId = newGroup.id;
+        });
       }
     }
   }
@@ -519,10 +557,13 @@ class _State extends ConsumerState<EntryEditScreen> {
     final groups = ref.watch(groupsProvider);
     final accent = Theme.of(context).colorScheme.primary;
     final validGroupId = groups.any((g) => g.id == _groupId) ? _groupId : null;
-    // AppBar is taller than kToolbarHeight because of the filled "Speichern"
-    // button, so add extra clearance to keep the type selector visible.
-    final topPadding =
-        MediaQuery.of(context).padding.top + kToolbarHeight + 24;
+    // AppBar is taller than kToolbarHeight because of the icon-button row
+    // below the title, so add extra clearance to keep the content visible.
+    const actionsRowHeight = 52.0;
+    final topPadding = MediaQuery.of(context).padding.top +
+        kToolbarHeight +
+        actionsRowHeight +
+        16;
 
     return PopScope(
       canPop: false,
@@ -530,118 +571,135 @@ class _State extends ConsumerState<EntryEditScreen> {
         if (didPop) return;
         await _handleBack();
       },
-      child: GradientScaffold(
-        appBar: AppBar(
-          title: Text(isNew ? 'Neuer Eintrag' : 'Bearbeiten'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: _handleBack,
-          ),
-          actions: [
-            TextButton(
-              onPressed: _saving ? null : _handleBack,
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Abbrechen'),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Speichern'),
+      child: Stack(
+        children: [
+          GradientScaffold(
+            appBar: AppBar(
+              title: Text(isNew ? 'Neuer Eintrag' : 'Bearbeiten'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: _handleBack,
               ),
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            topPadding,
-            20,
-            MediaQuery.of(context).viewInsets.bottom + 80,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _TypeSelector(
-                selected: _type,
-                onChanged: (t) => setState(() => _type = t),
-              ).animate().fadeIn(),
-
-              const SizedBox(height: 16),
-
-              // Label dropdown — always visible
-              DropdownButtonFormField<String?>(
-                value: validGroupId,
-                decoration: const InputDecoration(labelText: 'Label'),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Keine')),
-                  ...groups.map((g) =>
-                      DropdownMenuItem(value: g.id, child: Text(g.name))),
-                  DropdownMenuItem(
-                    value: '__new__',
-                    child: Row(children: const [
-                      Icon(Icons.add_rounded, size: 16),
-                      SizedBox(width: 8),
-                      Text('Neues Label erstellen...'),
-                    ]),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(actionsRowHeight),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton.filled(
+                        onPressed: _saving ? null : _handleBack,
+                        tooltip: 'Abbrechen',
+                        style: IconButton.styleFrom(
+                          backgroundColor: KPasswortColors.error.withOpacity(0.15),
+                          foregroundColor: KPasswortColors.error,
+                        ),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                      const SizedBox(width: 20),
+                      IconButton.filled(
+                        onPressed: _saving ? null : _save,
+                        tooltip: 'Speichern',
+                        style: IconButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.check_rounded),
+                      ),
+                    ],
                   ),
-                ],
-                onChanged: (v) async {
-                  if (v == '__new__') {
-                    await _createNewLabel();
-                    return;
-                  }
-                  setState(() => _groupId = v);
-                },
-              ).animate(delay: 50.ms).fadeIn(),
-              const SizedBox(height: 14),
-
-              // Unified draggable list of all fields
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                buildDefaultDragHandles: false,
-                itemCount: _allRows.length,
-                onReorder: (oldIdx, newIdx) {
-                  setState(() {
-                    if (newIdx > oldIdx) newIdx--;
-                    _allRows.insert(newIdx, _allRows.removeAt(oldIdx));
-                  });
-                },
-                itemBuilder: (ctx, i) => _buildRowItem(ctx, i, accent),
-              ),
-
-              TextButton.icon(
-                onPressed: () async {
-                  final type = await _pickFieldType();
-                  if (type != null) {
-                    setState(() => _allRows.add(_CustomFieldRow(_CfRow(
-                          type: type,
-                          isProtected: type == CustomFieldType.password,
-                        ))));
-                  }
-                },
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Eigenes Feld hinzufügen'),
-              ).animate(delay: 350.ms).fadeIn(),
-
-              // Tags section
-              const SizedBox(height: 8),
-              Text(
-                'TAGS',
-                style: AppTypography.labelSmall.copyWith(
-                  color: accent,
-                  letterSpacing: 1.2,
                 ),
-              ).animate(delay: 355.ms).fadeIn(),
-              const SizedBox(height: 8),
+              ),
+            ),
+            body: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                topPadding,
+                20,
+                MediaQuery.of(context).viewInsets.bottom + 80,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Label dropdown — always visible
+                  DropdownButtonFormField<String?>(
+                    value: validGroupId,
+                    decoration: const InputDecoration(labelText: 'Gruppe'),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Keine')),
+                      ...groups.map((g) =>
+                          DropdownMenuItem(value: g.id, child: Text(g.name))),
+                      DropdownMenuItem(
+                        value: '__new__',
+                        child: Row(children: const [
+                          Icon(Icons.add_rounded, size: 16),
+                          SizedBox(width: 8),
+                          Text('Neue Gruppe erstellen...'),
+                        ]),
+                      ),
+                    ],
+                    onChanged: (v) async {
+                      if (v == '__new__') {
+                        await _createNewLabel();
+                        return;
+                      }
+                      setState(() => _groupId = v);
+                    },
+                  ).animate(delay: 50.ms).fadeIn(),
+                  const SizedBox(height: 14),
+
+                  // Unified draggable list of all fields
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    itemCount: _allRows.length,
+                    onReorder: (oldIdx, newIdx) {
+                      setState(() {
+                        if (newIdx > oldIdx) newIdx--;
+                        _allRows.insert(newIdx, _allRows.removeAt(oldIdx));
+                      });
+                    },
+                    itemBuilder: (ctx, i) => _buildRowItem(ctx, i, accent),
+                  ),
+
+                  TextButton.icon(
+                    onPressed: () async {
+                      final type = await _pickFieldType();
+                      if (type != null) {
+                        setState(() => _allRows.add(_CustomFieldRow(_CfRow(
+                              type: type,
+                              isProtected: type == CustomFieldType.password,
+                            ))));
+                      }
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Eigenes Feld hinzufügen'),
+                  ).animate(delay: 350.ms).fadeIn(),
+
+                  const SizedBox(height: 16),
+                  _TypeSelector(
+                    selected: _type,
+                    onChanged: (t) => setState(() => _type = t),
+                  ).animate(delay: 352.ms).fadeIn(),
+
+                  // Tags section
+                  const SizedBox(height: 16),
+                  Text(
+                    'TAGS',
+                    style: AppTypography.labelSmall.copyWith(
+                      color: accent,
+                      letterSpacing: 1.2,
+                    ),
+                  ).animate(delay: 355.ms).fadeIn(),
+                  const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -661,7 +719,7 @@ class _State extends ConsumerState<EntryEditScreen> {
                       )),
                   ActionChip(
                     avatar: const Icon(Icons.add_rounded, size: 14),
-                    label: const Text('Hinzufügen'),
+                    label: const Text('Neuer Tag erstellen'),
                     onPressed: _addTag,
                   ),
                 ],
@@ -719,16 +777,28 @@ class _State extends ConsumerState<EntryEditScreen> {
                 }),
               ],
 
-              TextButton.icon(
-                onPressed: _pickAttachment,
-                icon: const Icon(Icons.attach_file_rounded, size: 18),
-                label: const Text('Anhang hinzufügen'),
+              Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: _pickAttachment,
+                    icon: const Icon(Icons.attach_file_rounded, size: 18),
+                    label: const Text('Anhang hinzufügen'),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addPhoto,
+                    icon: const Icon(Icons.add_a_photo_rounded, size: 18),
+                    label: const Text('Foto hinzufügen'),
+                  ),
+                ],
               ).animate(delay: 380.ms).fadeIn(),
 
               const SizedBox(height: 40),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+          if (_saving) const SavingOverlay(),
+        ],
       ),
     );
   }

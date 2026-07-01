@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_card.dart';
+import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
+import 'package:k_passwort/ui/widgets/saving_overlay.dart';
 import 'package:uuid/uuid.dart';
 
 class VaultShell extends ConsumerWidget {
@@ -101,6 +103,7 @@ class VaultHomeScreen extends ConsumerStatefulWidget {
 
 class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   bool _searching = false;
+  bool _savingGroup = false;
   final _searchController = TextEditingController();
 
   @override
@@ -114,7 +117,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Neue Kategorie'),
+        title: const Text('Neue Gruppe'),
         content: TextField(
           controller: nameCtrl,
           decoration: const InputDecoration(labelText: 'Name'),
@@ -132,13 +135,159 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
         ],
       ),
     );
-    if (confirmed == true && nameCtrl.text.isNotEmpty) {
+    if (confirmed == true && nameCtrl.text.isNotEmpty && mounted) {
+      setState(() => _savingGroup = true);
       final repo = ref.read(vaultRepositoryProvider);
       await repo.addGroup(VaultGroup(
         id: const Uuid().v4(),
         name: nameCtrl.text,
       ));
       ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
+      if (mounted) setState(() => _savingGroup = false);
+    }
+  }
+
+  Future<void> _showVaultSwitcher() async {
+    final vaults = ref.read(vaultListProvider);
+    final currentUri = ref.read(currentVaultUriProvider);
+    await showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Datenbank wechseln',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            ...vaults.map((v) => ListTile(
+                  leading: Icon(
+                    v.uri == currentUri
+                        ? Icons.check_circle_rounded
+                        : Icons.lock_outline_rounded,
+                    color: v.uri == currentUri
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  title: Text(v.name),
+                  onTap: v.uri == currentUri
+                      ? null
+                      : () {
+                          Navigator.pop(ctx);
+                          final uri = Uri(
+                            path: Routes.switchVault,
+                            queryParameters: {'uri': v.uri, 'name': v.name},
+                          );
+                          context.go(uri.toString());
+                        },
+                )),
+            ListTile(
+              leading: const Icon(Icons.add_rounded),
+              title: const Text('Neue Datenbank hinzufügen'),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.go(Routes.onboardingOpenVault);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _transferSelected({required bool move}) async {
+    final selectedIds = ref.read(selectedEntryIdsProvider);
+    if (selectedIds.isEmpty) return;
+    final otherVaults = ref
+        .read(vaultListProvider)
+        .where((v) => v.uri != ref.read(currentVaultUriProvider))
+        .toList();
+    if (otherVaults.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Füge zuerst eine weitere Datenbank hinzu'),
+      ));
+      return;
+    }
+
+    final target = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                move ? 'Verschieben nach…' : 'Kopieren nach…',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            ...otherVaults.map((v) => ListTile(
+                  leading: const Icon(Icons.lock_outline_rounded),
+                  title: Text(v.name),
+                  onTap: () => Navigator.pop(ctx, v.uri),
+                )),
+          ],
+        ),
+      ),
+    );
+    if (target == null || !mounted) return;
+
+    final pwCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Master-Passwort'),
+        content: TextField(
+          controller: pwCtrl,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Master-Passwort der Zieldatenbank'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(move ? 'Verschieben' : 'Kopieren'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || pwCtrl.text.isEmpty || !mounted) return;
+
+    setState(() => _savingGroup = true);
+    try {
+      await ref.read(vaultRepositoryProvider).transferEntriesToVault(
+            entryIds: selectedIds.toList(),
+            targetUri: target,
+            targetMasterPassword: pwCtrl.text,
+            move: move,
+          );
+      ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
+      ref.read(selectionModeProvider.notifier).state = false;
+      ref.read(selectedEntryIdsProvider.notifier).state = {};
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(move
+              ? 'Einträge verschoben'
+              : 'Einträge kopiert'),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingGroup = false);
     }
   }
 
@@ -149,55 +298,96 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
     final selectedTags = ref.watch(selectedTagsProvider);
     final groups = ref.watch(groupsProvider);
     final selectedGroup = ref.watch(selectedGroupProvider);
+    final selectionMode = ref.watch(selectionModeProvider);
+    final selectedIds = ref.watch(selectedEntryIdsProvider);
+    final vaultName = ref.watch(currentVaultNameProvider);
 
     final hasFilters = allTags.isNotEmpty || groups.isNotEmpty;
 
-    return GradientScaffold(
+    return Stack(
+      children: [
+        GradientScaffold(
       appBar: AppBar(
-        title: _searching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                style: AppTypography.bodyLarge,
-                decoration: InputDecoration(
-                  hintText: 'Suchen…',
-                  border: InputBorder.none,
-                  hintStyle: AppTypography.bodyLarge.copyWith(
-                    color: KPasswortColors.onSurfaceVariant,
+        leading: selectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () {
+                  ref.read(selectionModeProvider.notifier).state = false;
+                  ref.read(selectedEntryIdsProvider.notifier).state = {};
+                },
+              )
+            : null,
+        title: selectionMode
+            ? Text('${selectedIds.length} ausgewählt')
+            : _searching
+                ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    style: AppTypography.bodyLarge,
+                    decoration: InputDecoration(
+                      hintText: 'Suchen…',
+                      border: InputBorder.none,
+                      hintStyle: AppTypography.bodyLarge.copyWith(
+                        color: KPasswortColors.onSurfaceVariant,
+                      ),
+                    ),
+                    onChanged: (q) => ref.read(searchQueryProvider.notifier).state = q,
+                  )
+                : InkWell(
+                    onTap: _showVaultSwitcher,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(vaultName.isEmpty ? 'Tresor' : vaultName),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.expand_more_rounded, size: 20),
+                      ],
+                    ),
+                  ),
+        actions: selectionMode
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.copy_rounded),
+                  tooltip: 'Kopieren',
+                  onPressed: () => _transferSelected(move: false),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.drive_file_move_outline_rounded),
+                  tooltip: 'Verschieben',
+                  onPressed: () => _transferSelected(move: true),
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: Icon(_searching ? Icons.close : Icons.search_rounded),
+                  onPressed: () {
+                    setState(() => _searching = !_searching);
+                    if (!_searching) {
+                      _searchController.clear();
+                      ref.read(searchQueryProvider.notifier).state = '';
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.sort_rounded),
+                  onPressed: () => showModalBottomSheet(
+                    context: context,
+                    builder: (ctx) => const _SortSheet(),
                   ),
                 ),
-                onChanged: (q) => ref.read(searchQueryProvider.notifier).state = q,
-              )
-            : const Text('Tresor'),
-        actions: [
-          IconButton(
-            icon: Icon(_searching ? Icons.close : Icons.search_rounded),
-            onPressed: () {
-              setState(() => _searching = !_searching);
-              if (!_searching) {
-                _searchController.clear();
-                ref.read(searchQueryProvider.notifier).state = '';
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.sort_rounded),
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              builder: (ctx) => const _SortSheet(),
+                IconButton(
+                  icon: const Icon(Icons.create_new_folder_outlined),
+                  tooltip: 'Neue Gruppe',
+                  onPressed: _showNewGroupDialog,
+                ),
+              ],
+      ),
+      floatingActionButton: selectionMode
+          ? null
+          : FloatingActionButton(
+              onPressed: () => context.go(Routes.entryNew),
+              child: const Icon(Icons.add_rounded),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.create_new_folder_outlined),
-            tooltip: 'Neue Kategorie',
-            onPressed: _showNewGroupDialog,
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go(Routes.entryNew),
-        child: const Icon(Icons.add_rounded),
-      ),
       body: entries.isEmpty && !hasFilters
           ? _EmptyState(isSearching: _searching)
           : CustomScrollView(
@@ -287,7 +477,12 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 0),
                       itemBuilder: (context, index) {
                         final entry = entries[index];
-                        return EntryCard(entry: entry, index: index);
+                        return EntryCard(
+                          entry: entry,
+                          index: index,
+                          selectionMode: selectionMode,
+                          selected: selectedIds.contains(entry.id),
+                        );
                       },
                     ),
                   ),
@@ -295,6 +490,9 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ),
+        ),
+        if (_savingGroup) const SavingOverlay(),
+      ],
     );
   }
 }
@@ -311,6 +509,7 @@ class _SortSheet extends ConsumerWidget {
       (SortOrder.newestFirst, 'Neueste zuerst'),
       (SortOrder.oldestFirst, 'Älteste zuerst'),
       (SortOrder.byType, 'Nach Typ'),
+      (SortOrder.bySize, 'Nach Größe'),
     ];
     return SafeArea(
       child: Column(

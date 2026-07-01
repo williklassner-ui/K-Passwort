@@ -156,6 +156,52 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
+  Future<void> transferEntriesToVault({
+    required List<String> entryIds,
+    required String targetUri,
+    required String targetMasterPassword,
+    required bool move,
+  }) async {
+    if (_vault == null) throw const StorageFailure('Kein Tresor geöffnet');
+
+    final targetBytes = await SafStorage.readFile(targetUri);
+    if (targetBytes == null) {
+      throw const VaultNotFoundFailure();
+    }
+
+    KdbxVault targetVault;
+    try {
+      targetVault = await KdbxVault.open(
+        data: targetBytes,
+        masterPassword: targetMasterPassword,
+      );
+    } catch (e) {
+      if (e.toString().contains('Invalid credentials')) {
+        throw const WrongPasswordFailure();
+      }
+      throw CorruptedVaultFailure();
+    }
+
+    final toTransfer = entries.where((e) => entryIds.contains(e.id)).toList();
+    for (final e in toTransfer) {
+      targetVault.addEntry(e.copyWith(groupId: null));
+    }
+
+    final targetOut = await targetVault.encode();
+    final ok = await SafStorage.writeFile(targetUri, targetOut);
+    if (!ok) {
+      throw const StorageFailure('Zieldatenbank konnte nicht gespeichert werden');
+    }
+
+    if (move) {
+      for (final id in entryIds) {
+        _vault!.deleteEntry(id);
+      }
+      await save();
+    }
+  }
+
+  @override
   List<VaultEntry> search(String query) {
     if (query.isEmpty) return entries;
     final q = query.toLowerCase();

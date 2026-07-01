@@ -18,3 +18,11 @@
 
 # Flutter Play Store deferred components reference Play Core — not used in this app
 -dontwarn com.google.android.play.core.**
+
+# Argon2 native FFI (vault unlock KDF) — keep any class declaring native
+# methods intact (JNI/dlopen glue). If R8 strips or renames these, the kdbx
+# package silently falls back to a slow pure-Dart Argon2id that runs on the
+# UI thread and can trigger an ANR on unlock.
+-keepclasseswithmembernames class * {
+    native <methods>;
+}

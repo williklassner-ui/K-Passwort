@@ -17,6 +17,10 @@ class KdbxVault {
   // implementation computes the same Argon2id KDF natively in a fraction of
   // the time. If the native library is unavailable kdbx still falls back to
   // the pure-Dart path, so this is safe.
+  // Observed in the field: a user hit an Android ANR ("K-Passwort reagiert
+  // nicht") on unlock, consistent with this exact fallback path being taken
+  // on a release build. If it recurs, the real fix is moving KdbxVault.open
+  // off the main isolate — flagged as a follow-up, not attempted blind.
   static final _format = KdbxFormat(Argon2FfiFlutter());
 
   static Future<KdbxVault> create({

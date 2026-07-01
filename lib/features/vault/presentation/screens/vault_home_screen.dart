@@ -352,7 +352,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                   onPressed: () => _transferSelected(move: false),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.drive_file_move_outline_rounded),
+                  icon: const Icon(Icons.swap_horiz_rounded),
                   tooltip: 'Verschieben',
                   onPressed: () => _transferSelected(move: true),
                 ),

@@ -56,7 +56,7 @@ class _State extends ConsumerState<BiometricSetupScreen> {
                     width: 1.5,
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.fingerprint_rounded,
                   color: KPasswortColors.primary,
                   size: 52,

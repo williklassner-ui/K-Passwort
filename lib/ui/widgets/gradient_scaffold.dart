@@ -22,7 +22,11 @@ class GradientScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    final gradientCenter = Color.lerp(primary, Colors.black, 0.88)!;
+    final gradientCenter = Color.lerp(
+      primary,
+      KPasswortColors.isLight ? Colors.white : Colors.black,
+      0.88,
+    )!;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: appBar,

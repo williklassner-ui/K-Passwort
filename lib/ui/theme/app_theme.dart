@@ -5,19 +5,18 @@ import 'package:k_passwort/ui/theme/typography.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData dark({Color accent = const Color(0xFF00C6A0)}) {
-    final accentDim = Color.lerp(accent, Colors.black, 0.2)!;
-    final colors = KPasswortColors.scheme.copyWith(
-      primary: accent,
-      primaryContainer: Color.lerp(accent, Colors.black, 0.8)!,
-      onPrimaryContainer: accent,
-    );
+  /// Builds the current [ThemeData] from the palette configured via
+  /// [KPasswortColors.configure]/[AppTypography.configure] — call this
+  /// again (it always reads the latest static state) whenever those change.
+  static ThemeData build() {
+    final accent = KPasswortColors.primary;
+    final brightness = KPasswortColors.isLight ? Brightness.light : Brightness.dark;
 
     return ThemeData(
       useMaterial3: true,
-      colorScheme: colors,
+      colorScheme: KPasswortColors.scheme(),
       fontFamily: AppTypography.primaryFont,
-      brightness: Brightness.dark,
+      brightness: brightness,
       scaffoldBackgroundColor: KPasswortColors.background,
       cardColor: KPasswortColors.surface,
 
@@ -29,12 +28,12 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: AppTypography.titleLarge,
-        iconTheme: const IconThemeData(color: KPasswortColors.onBackground),
+        iconTheme: IconThemeData(color: KPasswortColors.onBackground),
       ),
 
       // Cards
       cardTheme: CardThemeData(
-        color: const Color(0xFF1C1C1E),
+        color: KPasswortColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -61,7 +60,7 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: KPasswortColors.error, width: 1),
+          borderSide: BorderSide(color: KPasswortColors.error, width: 1),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: AppTypography.bodyMedium.copyWith(color: KPasswortColors.onSurfaceVariant),
@@ -116,7 +115,7 @@ class AppTheme {
       ),
 
       // Divider
-      dividerTheme: const DividerThemeData(
+      dividerTheme: DividerThemeData(
         color: KPasswortColors.outline,
         thickness: 0.5,
         space: 0,
@@ -161,10 +160,10 @@ class AppTheme {
       ),
 
       // Bottom sheet
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: KPasswortColors.surface,
         modalBackgroundColor: KPasswortColors.surface,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         showDragHandle: true,

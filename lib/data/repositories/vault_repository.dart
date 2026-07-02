@@ -31,11 +31,31 @@ abstract class VaultRepository {
 
   Future<void> addEntry(VaultEntry entry);
   Future<void> updateEntry(VaultEntry entry);
+
+  /// Moves entry [id] into the recycle bin ("Papierkorb") rather than
+  /// deleting it outright — it stays recoverable via [restoreEntry] until
+  /// permanently removed (manually or by [purgeExpiredTrash]).
   Future<void> deleteEntry(String id);
 
   Future<void> addGroup(VaultGroup group);
   Future<void> updateGroup(VaultGroup group);
+
+  /// Moves group [id] (and its contents) into the recycle bin.
   Future<void> deleteGroup(String id);
+
+  /// Entries currently in the recycle bin, across any deleted groups too.
+  List<VaultEntry> get trashedEntries;
+
+  /// Moves a trashed entry back into the root group.
+  Future<void> restoreEntry(String id);
+
+  /// Permanently removes a trashed entry — cannot be undone.
+  Future<void> permanentlyDeleteEntry(String id);
+
+  /// Permanently removes trashed entries older than [retentionDays] days
+  /// (based on their deletion/last-modification time). No-op if nothing has
+  /// expired.
+  Future<void> purgeExpiredTrash(int retentionDays);
 
   VaultEntry? findById(String id);
   List<VaultEntry> search(String query);

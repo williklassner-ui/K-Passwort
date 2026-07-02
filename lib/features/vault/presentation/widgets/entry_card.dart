@@ -103,7 +103,7 @@ class EntryCard extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded,
+              leading: Icon(Icons.delete_outline_rounded,
                   color: KPasswortColors.error),
               title: const Text('Löschen',
                   style: TextStyle(color: KPasswortColors.error)),
@@ -113,7 +113,8 @@ class EntryCard extends ConsumerWidget {
                   context: context,
                   builder: (dialogCtx) => AlertDialog(
                     title: const Text('Eintrag löschen?'),
-                    content: Text('"${entry.title}" wird dauerhaft gelöscht.'),
+                    content: Text(
+                        '"${entry.title}" wird in den Papierkorb verschoben und kann dort wiederhergestellt werden.'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(dialogCtx, false),
@@ -194,7 +195,7 @@ class EntryCard extends ConsumerWidget {
               ),
 
               if (entry.attachments.isNotEmpty) ...[
-                const Icon(Icons.attach_file_rounded,
+                Icon(Icons.attach_file_rounded,
                     color: KPasswortColors.onSurfaceVariant, size: 14),
                 const SizedBox(width: 4),
               ],

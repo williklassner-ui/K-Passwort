@@ -6,6 +6,7 @@ import 'package:k_passwort/core/constants/app_constants.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/onboarding/presentation/widgets/password_strength_indicator.dart';
+import 'package:k_passwort/features/settings/providers/trash_retention_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
@@ -14,6 +15,7 @@ import 'package:k_passwort/sync/saf_sync_service.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
+import 'package:k_passwort/ui/widgets/pulsing_light.dart';
 import 'package:k_passwort/ui/widgets/secure_text_field.dart';
 
 class MasterPasswordSetupScreen extends ConsumerStatefulWidget {
@@ -128,6 +130,10 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
         await SyncStateNotifier.saveVaultUri(vaultUri);
         await repo.open(vaultUri: vaultUri, masterPassword: password);
         await keyManager.unlockWithPassword(password: password);
+        final retentionDays = ref.read(trashRetentionDaysProvider);
+        if (retentionDays != null) {
+          await repo.purgeExpiredTrash(retentionDays);
+        }
       }
 
       await ref.read(vaultListProvider.notifier).add(VaultDescriptor(
@@ -237,7 +243,7 @@ class _FilePickStep extends StatelessWidget {
                 color: KPasswortColors.primary.withOpacity(0.3),
               ),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.folder_open_outlined,
               color: KPasswortColors.primary,
               size: 48,
@@ -258,7 +264,7 @@ class _FilePickStep extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline,
+                Icon(Icons.error_outline,
                     color: KPasswortColors.error, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
@@ -335,7 +341,7 @@ class _PasswordStep extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.lock_outline_rounded,
+                Icon(Icons.lock_outline_rounded,
                     color: KPasswortColors.primary, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
@@ -396,7 +402,7 @@ class _PasswordStep extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline,
+                Icon(Icons.error_outline,
                     color: KPasswortColors.error, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
@@ -416,12 +422,7 @@ class _PasswordStep extends StatelessWidget {
           child: ElevatedButton(
             onPressed: loading ? null : onProceed,
             child: loading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2.5, color: Colors.white),
-                  )
+                ? const PulsingLight(size: 18)
                 : Text(isCreating ? 'Tresor erstellen' : 'Öffnen'),
           ),
         ).animate(delay: 300.ms).fadeIn(),

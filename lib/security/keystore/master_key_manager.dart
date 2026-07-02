@@ -16,8 +16,9 @@ class MasterKeyManager {
   final FlutterSecureStorage _storage;
   SecureKey? _masterKey;
   String? _rawPassword;
+  Uint8List? _rawKeyFileBytes;
 
-  bool get isUnlocked => _masterKey != null;
+  bool get isUnlocked => _masterKey != null || _rawPassword != null;
 
   /// Access the current master key — throws if locked.
   SecureKey get masterKey {
@@ -25,19 +26,18 @@ class MasterKeyManager {
     return _masterKey!;
   }
 
-  /// Derive master key from password (+ optional key-file bytes).
-  /// Saves Argon2 salt to secure storage.
+  /// Remembers the password used to unlock the vault. Does NOT derive the
+  /// (expensive, Argon2-based) app-level master key — that key is only
+  /// needed for biometric wrapping, so it's derived lazily in
+  /// [enableBiometric] instead of on every single unlock.
   Future<void> unlockWithPassword({
     required String password,
     Uint8List? keyFileBytes,
   }) async {
-    final salt = await _getOrCreateSalt();
-    final compositePassword = _buildCompositePassword(password, keyFileBytes);
-    final key = await Argon2Kdf.derive(password: compositePassword, salt: salt);
-
     _masterKey?.dispose();
-    _masterKey = key;
+    _masterKey = null;
     _rawPassword = password;
+    _rawKeyFileBytes = keyFileBytes;
   }
 
   /// Unlock via biometric (unwraps key from Android Keystore).
@@ -61,7 +61,15 @@ class MasterKeyManager {
   /// Enable biometric unlock: wraps current master key with Android Keystore.
   /// Also stores the password (encrypted by FlutterSecureStorage) for fresh-start unlock.
   Future<void> enableBiometric() async {
-    if (_masterKey == null) throw StateError('Must be unlocked first');
+    if (_masterKey == null && _rawPassword == null) {
+      throw StateError('Must be unlocked first');
+    }
+    if (_masterKey == null) {
+      // Derive the app-level key now — only needed here, not on every unlock.
+      final salt = await _getOrCreateSalt();
+      final compositePassword = _buildCompositePassword(_rawPassword!, _rawKeyFileBytes);
+      _masterKey = await Argon2Kdf.derive(password: compositePassword, salt: salt);
+    }
 
     await AndroidKeystore.generateKey();
     final wrapped = await AndroidKeystore.wrapKey(_masterKey!);
@@ -89,6 +97,7 @@ class MasterKeyManager {
     _masterKey?.dispose();
     _masterKey = null;
     _rawPassword = null;
+    _rawKeyFileBytes = null;
   }
 
   Future<Uint8List> _getOrCreateSalt() async {

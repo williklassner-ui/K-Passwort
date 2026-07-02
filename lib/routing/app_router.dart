@@ -31,7 +31,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.onboardingOpenVault,
-        builder: (_, __) => const MasterPasswordSetupScreen(isCreating: false),
+        builder: (_, state) => MasterPasswordSetupScreen(
+          isCreating: false,
+          prefillUri: state.uri.queryParameters['uri'],
+          vaultName: state.uri.queryParameters['name'],
+        ),
       ),
       GoRoute(
         path: Routes.onboardingBiometric,
@@ -45,6 +49,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.switchVault,
         builder: (_, state) => MasterPasswordSetupScreen(
           isCreating: false,
+          isSwitching: true,
           prefillUri: state.uri.queryParameters['uri'],
           vaultName: state.uri.queryParameters['name'],
         ),

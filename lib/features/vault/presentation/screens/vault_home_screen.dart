@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
+import 'package:k_passwort/core/utils/vault_open_flow.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_card.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
@@ -189,7 +190,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
               title: const Text('Neue Datenbank hinzufügen'),
               onTap: () {
                 Navigator.pop(ctx);
-                context.go(Routes.onboardingOpenVault);
+                pickAndOpenExistingVault(context);
               },
             ),
             const SizedBox(height: 8),

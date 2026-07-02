@@ -1,6 +1,9 @@
 abstract class Failure {
   const Failure(this.message);
   final String message;
+
+  @override
+  String toString() => message;
 }
 
 class WrongPasswordFailure extends Failure {
@@ -8,7 +11,10 @@ class WrongPasswordFailure extends Failure {
 }
 
 class CorruptedVaultFailure extends Failure {
-  const CorruptedVaultFailure() : super('Vault-Datei ist beschädigt oder wurde manipuliert');
+  const CorruptedVaultFailure([String? detail])
+      : super(detail == null
+            ? 'Vault-Datei ist beschädigt oder wurde manipuliert'
+            : 'Vault-Datei ist beschädigt oder wurde manipuliert: $detail');
 }
 
 class VaultNotFoundFailure extends Failure {

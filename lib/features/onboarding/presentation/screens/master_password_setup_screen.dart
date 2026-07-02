@@ -20,11 +20,15 @@ class MasterPasswordSetupScreen extends ConsumerStatefulWidget {
   const MasterPasswordSetupScreen({
     super.key,
     required this.isCreating,
+    this.isSwitching = false,
     this.prefillUri,
     this.vaultName,
   });
 
   final bool isCreating;
+  /// True only for the "switch vault while already unlocked" flow — controls
+  /// back-button behavior and post-success navigation.
+  final bool isSwitching;
   /// When set, skips the file picker and opens this URI directly.
   final String? prefillUri;
   final String? vaultName;
@@ -43,14 +47,15 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
   String? _selectedUri;
   String _selectedName = '';
 
-  bool get _isSwitching => widget.prefillUri != null;
-  // True when we need the user to pick a file first (open, not create, not switch)
-  bool get _needsFilePick => !widget.isCreating && !_isSwitching;
+  bool get _isSwitching => widget.isSwitching;
+  // True when we need the user to pick a file first (i.e. no file was
+  // pre-selected by the caller before navigating here).
+  bool get _needsFilePick => !widget.isCreating && widget.prefillUri == null;
 
   @override
   void initState() {
     super.initState();
-    if (_isSwitching) {
+    if (widget.prefillUri != null) {
       _selectedUri = widget.prefillUri;
       _selectedName = widget.vaultName ?? 'Tresor';
     }
@@ -68,18 +73,20 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
     try {
       final uri = await SafStorage.pickKdbxFile();
       if (uri == null) {
-        setState(() { _loading = false; _error = 'Keine Datei gewählt'; });
+        if (mounted) setState(() { _loading = false; _error = 'Keine Datei gewählt'; });
         return;
       }
       final info = await SafStorage.getFileInfo(uri);
       final name = (info?['name'] as String?) ?? 'vault.kdbx';
-      setState(() {
-        _loading = false;
-        _selectedUri = uri;
-        _selectedName = name;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _selectedUri = uri;
+          _selectedName = name;
+        });
+      }
     } catch (e) {
-      setState(() { _loading = false; _error = 'Fehler: $e'; });
+      if (mounted) setState(() { _loading = false; _error = 'Fehler: $e'; });
     }
   }
 
@@ -137,14 +144,17 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
         context.go(_isSwitching ? Routes.vault : Routes.onboardingBiometric);
       }
     } catch (e) {
-      setState(() {
-        _loading = false;
-        _error = e.toString().contains('Wrong') ||
-                e.toString().contains('credentials') ||
-                e.toString().contains('Invalid')
-            ? 'Falsches Master-Passwort'
-            : e.toString();
-      });
+      debugPrint('Vault öffnen/erstellen fehlgeschlagen: $e');
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString().contains('Wrong') ||
+                  e.toString().contains('credentials') ||
+                  e.toString().contains('Invalid')
+              ? 'Falsches Master-Passwort'
+              : e.toString();
+        });
+      }
     }
   }
 
@@ -175,7 +185,7 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
               : _PasswordStep(
                   isCreating: widget.isCreating,
                   isSwitching: _isSwitching,
-                  vaultName: _isSwitching ? (widget.vaultName ?? 'Tresor') : _selectedName,
+                  vaultName: _selectedName,
                   passwordController: _passwordController,
                   confirmController: _confirmController,
                   loading: _loading,

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:k_passwort/core/errors/failures.dart';
 import 'package:k_passwort/data/kdbx/kdbx_vault.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
@@ -50,10 +51,11 @@ class VaultRepositoryImpl implements VaultRepository {
       );
       _currentUri = vaultUri;
     } catch (e) {
+      debugPrint('KDBX open failed: $e');
       if (e.toString().contains('Invalid credentials')) {
         throw const WrongPasswordFailure();
       }
-      throw CorruptedVaultFailure();
+      throw CorruptedVaultFailure(e.toString());
     }
   }
 

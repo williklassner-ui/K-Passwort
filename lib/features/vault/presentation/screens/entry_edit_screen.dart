@@ -1112,8 +1112,8 @@ class _CfTile extends StatelessWidget {
               ),
               ReorderableDragStartListener(
                 index: index,
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 4),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4),
                   child: Icon(Icons.drag_handle_rounded,
                       size: 18, color: KPasswortColors.onSurfaceVariant),
                 ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
+import 'package:k_passwort/features/settings/providers/trash_retention_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
@@ -12,6 +13,7 @@ import 'package:k_passwort/sync/saf_sync_service.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
+import 'package:k_passwort/ui/widgets/pulsing_light.dart';
 import 'package:k_passwort/ui/widgets/secure_text_field.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
@@ -123,6 +125,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       await repo.open(vaultUri: uri, masterPassword: password);
     }
 
+    final retentionDays = ref.read(trashRetentionDaysProvider);
+    if (retentionDays != null) {
+      await repo.purgeExpiredTrash(retentionDays);
+    }
+
     // Keep vault list up to date
     final info = await _vaultName(uri);
     await ref.read(vaultListProvider.notifier).add(VaultDescriptor(
@@ -155,13 +162,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     // While checking stored vault, show loading
     if (_storedUri == null && _error == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFF000000),
-        body: Center(
-          child: CircularProgressIndicator(
-            color: Theme.of(context).colorScheme.primary,
-            strokeWidth: 2.5,
-          ),
-        ),
+        backgroundColor: KPasswortColors.background,
+        body: const Center(child: PulsingLight(size: 32)),
       );
     }
 
@@ -232,11 +234,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _unlockWithPassword,
                   child: _loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2.5, color: Colors.white))
+                      ? const PulsingLight(size: 18)
                       : const Text('Entsperren'),
                 ),
               ).animate(delay: 300.ms).fadeIn(),

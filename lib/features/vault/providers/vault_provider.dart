@@ -27,6 +27,12 @@ final groupsProvider = Provider<List<VaultGroup>>((ref) {
   return ref.watch(vaultRepositoryProvider).groups;
 });
 
+/// Entries currently in the recycle bin ("Papierkorb").
+final trashedEntriesProvider = Provider<List<VaultEntry>>((ref) {
+  ref.watch(vaultRevisionProvider);
+  return ref.watch(vaultRepositoryProvider).trashedEntries;
+});
+
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
 enum SortOrder { titleAZ, titleZA, newestFirst, oldestFirst, byType, bySize }

@@ -832,7 +832,7 @@ class _State extends ConsumerState<EntryEditScreen> {
               child: Padding(
                 padding: EdgeInsets.only(
                     left: 4, top: isPassword ? 16 : 0),
-                child: const Icon(Icons.drag_handle_rounded,
+                child: Icon(Icons.drag_handle_rounded,
                     size: 18, color: KPasswortColors.onSurfaceVariant),
               ),
             ),

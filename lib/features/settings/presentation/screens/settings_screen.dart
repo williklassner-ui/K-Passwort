@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:k_passwort/core/constants/crypto_constants.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
+import 'package:k_passwort/core/utils/vault_open_flow.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/settings/providers/theme_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
@@ -363,7 +364,7 @@ class _State extends ConsumerState<SettingsScreen> {
               icon: Icons.add_rounded,
               title: 'Neue Datenbank öffnen',
               subtitle: '.kdbx-Datei hinzufügen',
-              onTap: () => context.go(Routes.onboardingOpenVault),
+              onTap: () => pickAndOpenExistingVault(context),
             ).animate(delay: 390.ms).fadeIn(),
 
             _SettingsTile(

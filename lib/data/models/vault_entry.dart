@@ -78,11 +78,32 @@ class VaultAttachment with _$VaultAttachment {
 }
 
 extension VaultAttachmentX on VaultAttachment {
-  String get sizeLabel {
-    final kb = bytes.length / 1024;
-    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
-    return '${(kb / 1024).toStringAsFixed(1)} MB';
+  String get sizeLabel => _formatSizeLabel(bytes.length);
+}
+
+String _formatSizeLabel(int byteCount) {
+  final kb = byteCount / 1024;
+  if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+  return '${(kb / 1024).toStringAsFixed(1)} MB';
+}
+
+extension VaultEntryX on VaultEntry {
+  int get sizeBytes {
+    var total = title.length +
+        username.length +
+        password.length +
+        url.length +
+        notes.length;
+    for (final cf in customFields) {
+      total += cf.key.length + cf.value.length;
+    }
+    for (final att in attachments) {
+      total += att.bytes.length;
+    }
+    return total;
   }
+
+  String get sizeLabel => _formatSizeLabel(sizeBytes);
 }
 
 extension VaultEntryColor on EntryType {

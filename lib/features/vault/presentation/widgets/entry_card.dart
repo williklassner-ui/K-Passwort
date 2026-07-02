@@ -12,10 +12,18 @@ import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 
 class EntryCard extends ConsumerWidget {
-  const EntryCard({super.key, required this.entry, required this.index});
+  const EntryCard({
+    super.key,
+    required this.entry,
+    required this.index,
+    this.selectionMode = false,
+    this.selected = false,
+  });
 
   final VaultEntry entry;
   final int index;
+  final bool selectionMode;
+  final bool selected;
 
   Future<void> _copySecure(BuildContext context, String text, String label) async {
     const channel = MethodChannel(CryptoConstants.clipboardChannel);
@@ -137,55 +145,72 @@ class EntryCard extends ConsumerWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => context.go('/vault/entry/${Uri.encodeComponent(entry.id)}'),
-        onLongPress: () => _showActions(context, ref),
+        onTap: () {
+          if (selectionMode) {
+            _toggleSelection(ref);
+          } else {
+            context.go('/vault/entry/${Uri.encodeComponent(entry.id)}');
+          }
+        },
+        onLongPress: () {
+          if (selectionMode) return;
+          ref.read(selectionModeProvider.notifier).state = true;
+          _toggleSelection(ref);
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              // Favicon / type icon
-              Hero(
-                tag: 'entry_icon_${entry.id}',
-                child: _EntryIcon(entry: entry),
-              ),
+              // Favicon / type icon (or selection checkmark)
+              if (selectionMode)
+                Icon(
+                  selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : KPasswortColors.onSurfaceVariant,
+                  size: 24,
+                )
+              else
+                Hero(
+                  tag: 'entry_icon_${entry.id}',
+                  child: _EntryIcon(entry: entry),
+                ),
               const SizedBox(width: 14),
 
-              // Title + username
+              // Title + size
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Hero(
-                      tag: 'entry_title_${entry.id}',
-                      child: Material(
-                        color: Colors.transparent,
-                        child: Text(
-                          entry.title,
-                          style: AppTypography.titleSmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                child: Hero(
+                  tag: 'entry_title_${entry.id}',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Text(
+                      entry.title,
+                      style: AppTypography.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (entry.username.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        entry.username,
-                        style: AppTypography.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
 
-              // Favorite indicator
-              if (entry.isFavorite)
-                const Icon(Icons.star_rounded, color: KPasswortColors.warning, size: 16),
+              if (entry.attachments.isNotEmpty) ...[
+                const Icon(Icons.attach_file_rounded,
+                    color: KPasswortColors.onSurfaceVariant, size: 14),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                entry.sizeLabel,
+                style: AppTypography.bodySmall,
+              ),
 
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded, color: KPasswortColors.onSurfaceVariant, size: 18),
+              if (!selectionMode)
+                IconButton(
+                  icon: const Icon(Icons.more_vert_rounded, size: 18),
+                  color: KPasswortColors.onSurfaceVariant,
+                  onPressed: () => _showActions(context, ref),
+                )
+              else
+                const SizedBox(width: 4),
             ],
           ),
         ),
@@ -194,6 +219,17 @@ class EntryCard extends ConsumerWidget {
         .animate(delay: (index * 30).ms)
         .fadeIn(duration: 250.ms, curve: Curves.easeOut)
         .slideY(begin: 0.05, end: 0, duration: 250.ms, curve: Curves.easeOut);
+  }
+
+  void _toggleSelection(WidgetRef ref) {
+    final notifier = ref.read(selectedEntryIdsProvider.notifier);
+    final current = Set<String>.from(notifier.state);
+    if (current.contains(entry.id)) {
+      current.remove(entry.id);
+    } else {
+      current.add(entry.id);
+    }
+    notifier.state = current;
   }
 }
 

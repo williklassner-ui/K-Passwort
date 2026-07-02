@@ -73,7 +73,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         if (mounted) setState(() { _loading = false; });
       }
     } catch (e) {
-      if (mounted) setState(() { _loading = false; _error = null; });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Entsperren fehlgeschlagen — bitte erneut versuchen';
+        });
+      }
     }
   }
 
@@ -125,6 +130,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       uri: uri,
       lastOpened: DateTime.now(),
     ));
+    ref.read(currentVaultUriProvider.notifier).state = uri;
 
     _onUnlocked();
   }

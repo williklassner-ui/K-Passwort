@@ -7,6 +7,7 @@ import 'package:k_passwort/features/generator/presentation/screens/generator_scr
 import 'package:k_passwort/features/onboarding/presentation/screens/biometric_setup_screen.dart';
 import 'package:k_passwort/features/onboarding/presentation/screens/master_password_setup_screen.dart';
 import 'package:k_passwort/features/onboarding/presentation/screens/welcome_screen.dart';
+import 'package:k_passwort/features/settings/presentation/screens/design_screen.dart';
 import 'package:k_passwort/features/settings/presentation/screens/settings_screen.dart';
 import 'package:k_passwort/features/settings/presentation/screens/trash_screen.dart';
 import 'package:k_passwort/features/vault/presentation/screens/entry_detail_screen.dart';
@@ -91,6 +92,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.settingsTrash,
             builder: (_, __) => const TrashScreen(),
+          ),
+          GoRoute(
+            path: Routes.settingsDesign,
+            builder: (_, __) => const DesignScreen(),
           ),
         ],
       ),

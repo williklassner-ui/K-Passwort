@@ -110,6 +110,31 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
+  List<VaultEntry> get trashedEntries => _vault?.trashedEntries ?? [];
+
+  @override
+  Future<void> restoreEntry(String id) async {
+    _vault!.restoreEntry(id);
+    await save();
+  }
+
+  @override
+  Future<void> permanentlyDeleteEntry(String id) async {
+    _vault!.permanentlyDeleteEntry(id);
+    await save();
+  }
+
+  @override
+  Future<void> purgeExpiredTrash(int retentionDays) async {
+    if (_vault == null) return;
+    final before = _vault!.trashedEntries.length;
+    _vault!.purgeExpiredTrash(retentionDays);
+    if (_vault!.trashedEntries.length != before) {
+      await save();
+    }
+  }
+
+  @override
   VaultEntry? findById(String id) {
     return entries.where((e) => e.id == id).firstOrNull;
   }

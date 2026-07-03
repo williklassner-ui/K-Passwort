@@ -8,7 +8,9 @@ import 'package:k_passwort/core/constants/crypto_constants.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/core/utils/vault_open_flow.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
+import 'package:k_passwort/features/settings/providers/appearance_provider.dart';
 import 'package:k_passwort/features/settings/providers/theme_provider.dart';
+import 'package:k_passwort/features/settings/providers/trash_retention_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/security/biometric/biometric_service.dart';
@@ -30,6 +32,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _State extends ConsumerState<SettingsScreen> {
   bool _biometricEnabled = false;
   String? _vaultUri;
+  String? _vaultLocationLabel;
   final _bioService = BiometricService();
   bool _biometricAvailable = false;
   bool _screenshotBlocked = false;
@@ -51,14 +54,45 @@ class _State extends ConsumerState<SettingsScreen> {
     final bioAvail = await _bioService.isAvailable();
     final uri = await SyncStateNotifier.getSavedVaultUri();
     final prefs = await SharedPreferences.getInstance();
+    final locationLabel = uri != null ? await _describeVaultLocation(uri) : null;
+    if (!mounted) return;
     setState(() {
       _biometricEnabled = bioEnabled;
       _biometricAvailable = bioAvail;
       _vaultUri = uri;
+      _vaultLocationLabel = locationLabel;
       _screenshotBlocked = prefs.getBool(_screenshotKey) ?? false;
       _autoLockMs = prefs.getInt('auto_lock_ms') ?? CryptoConstants.autoLockDelayMs;
       _lockOnScreenOff = prefs.getBool('lock_on_screen_off') ?? false;
     });
+  }
+
+  /// SAF content:// URIs have no real filesystem path. This derives the
+  /// most human-readable label available: the decoded document-id path
+  /// segment (e.g. "Documents/vault.kdbx") when present, falling back to
+  /// the file's display name via [SafStorage.getFileInfo]. Previously this
+  /// showed a raw, still percent-encoded substring of the opaque URI, which
+  /// looked like meaningless garbage to the user.
+  Future<String> _describeVaultLocation(String uri) async {
+    String? decodedPath;
+    try {
+      final segments = Uri.parse(uri).pathSegments;
+      if (segments.isNotEmpty) {
+        final decoded = Uri.decodeComponent(segments.last);
+        final colonIndex = decoded.indexOf(':');
+        decodedPath = colonIndex >= 0 ? decoded.substring(colonIndex + 1) : decoded;
+      }
+    } catch (_) {}
+
+    if (decodedPath != null && decodedPath.isNotEmpty) return decodedPath;
+
+    try {
+      final info = await SafStorage.getFileInfo(uri);
+      final name = info?['name'] as String?;
+      if (name != null && name.isNotEmpty) return name;
+    } catch (_) {}
+
+    return uri.length > 50 ? '…${uri.substring(uri.length - 50)}' : uri;
   }
 
   Future<void> _toggleScreenshotBlock(bool value) async {
@@ -72,7 +106,12 @@ class _State extends ConsumerState<SettingsScreen> {
     final uri = await SafStorage.pickKdbxFile();
     if (uri == null) return;
     await SyncStateNotifier.saveVaultUri(uri);
-    setState(() => _vaultUri = uri);
+    final locationLabel = await _describeVaultLocation(uri);
+    if (!mounted) return;
+    setState(() {
+      _vaultUri = uri;
+      _vaultLocationLabel = locationLabel;
+    });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sync-Pfad aktualisiert')),
@@ -118,6 +157,115 @@ class _State extends ConsumerState<SettingsScreen> {
                     final session = ref.read(sessionProvider.notifier);
                     await session.setAutoLockMs(v!);
                     setState(() => _autoLockMs = v);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showTrashRetentionPicker() async {
+    const options = <(int?, String)>[
+      (null, 'Unbegrenzt'),
+      (7, '7 Tage'),
+      (14, '14 Tage'),
+      (30, '30 Tage'),
+      (60, '60 Tage'),
+      (90, '90 Tage'),
+    ];
+    final current = ref.read(trashRetentionDaysProvider);
+    await showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Papierkorb-Aufbewahrung',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            ...options.map((opt) => RadioListTile<int?>(
+                  title: Text(opt.$2),
+                  value: opt.$1,
+                  groupValue: current,
+                  onChanged: (v) async {
+                    Navigator.pop(ctx);
+                    await ref.read(trashRetentionDaysProvider.notifier).setDays(v);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFontFamilyPicker() async {
+    const options = <(String?, String)>[
+      ('Inter', 'Inter (Standard)'),
+      ('JetBrainsMono', 'JetBrains Mono'),
+      (null, 'System'),
+    ];
+    final current = ref.read(fontFamilyProvider);
+    await showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Schriftart',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            ...options.map((opt) => RadioListTile<String?>(
+                  title: Text(opt.$2, style: TextStyle(fontFamily: opt.$1)),
+                  value: opt.$1,
+                  groupValue: current,
+                  onChanged: (v) async {
+                    Navigator.pop(ctx);
+                    await ref.read(fontFamilyProvider.notifier).setFamily(v);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFontScalePicker() async {
+    const options = <(double, String)>[
+      (0.9, '90%'),
+      (1.0, '100% (Standard)'),
+      (1.15, '115%'),
+      (1.3, '130%'),
+    ];
+    final current = ref.read(fontScaleProvider);
+    await showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Schriftgröße',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            ...options.map((opt) => RadioListTile<double>(
+                  title: Text(opt.$2),
+                  value: opt.$1,
+                  groupValue: current,
+                  onChanged: (v) async {
+                    Navigator.pop(ctx);
+                    await ref.read(fontScaleProvider.notifier).setScale(v!);
                   },
                 )),
           ],
@@ -246,7 +394,41 @@ class _State extends ConsumerState<SettingsScreen> {
           children: [
             _SectionHeader('Erscheinungsbild').animate().fadeIn(),
 
+            _ThemeModeSelector().animate(delay: 10.ms).fadeIn(),
+
             _ColorPickerTile().animate(delay: 20.ms).fadeIn(),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text('Hintergrundfarbe (optional)', style: AppTypography.bodySmall),
+            ).animate(delay: 25.ms).fadeIn(),
+            _OptionalColorPickerTile(
+              current: ref.watch(backgroundColorProvider),
+              onChanged: (c) => ref.read(backgroundColorProvider.notifier).setColor(c),
+            ).animate(delay: 30.ms).fadeIn(),
+
+            _SettingsTile(
+              icon: Icons.font_download_outlined,
+              title: 'Schriftart',
+              subtitle: ref.watch(fontFamilyProvider) ?? 'System',
+              onTap: _showFontFamilyPicker,
+            ).animate(delay: 32.ms).fadeIn(),
+
+            _SettingsTile(
+              icon: Icons.format_size_rounded,
+              title: 'Schriftgröße',
+              subtitle: '${(ref.watch(fontScaleProvider) * 100).round()}%',
+              onTap: _showFontScalePicker,
+            ).animate(delay: 34.ms).fadeIn(),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text('Schriftfarbe (optional)', style: AppTypography.bodySmall),
+            ).animate(delay: 36.ms).fadeIn(),
+            _OptionalColorPickerTile(
+              current: ref.watch(fontColorProvider),
+              onChanged: (c) => ref.read(fontColorProvider.notifier).setColor(c),
+            ).animate(delay: 38.ms).fadeIn(),
 
             const SizedBox(height: 24),
             _SectionHeader('Sicherheit').animate(delay: 40.ms).fadeIn(),
@@ -308,11 +490,7 @@ class _State extends ConsumerState<SettingsScreen> {
             _SettingsTile(
               icon: Icons.folder_outlined,
               title: 'Tresor-Speicherort',
-              subtitle: _vaultUri != null
-                  ? _vaultUri!.length > 50
-                      ? '…${_vaultUri!.substring(_vaultUri!.length - 50)}'
-                      : _vaultUri
-                  : 'Kein Pfad gesetzt',
+              subtitle: _vaultLocationLabel ?? 'Kein Pfad gesetzt',
               onTap: _changeSyncPath,
             ).animate(delay: 200.ms).fadeIn(),
 
@@ -381,6 +559,26 @@ class _State extends ConsumerState<SettingsScreen> {
             ).animate(delay: 398.ms).fadeIn(),
 
             const SizedBox(height: 24),
+            _SectionHeader('Papierkorb').animate(delay: 399.ms).fadeIn(),
+
+            _SettingsTile(
+              icon: Icons.delete_outline_rounded,
+              title: 'Papierkorb',
+              subtitle: '${ref.watch(trashedEntriesProvider).length} gelöschte Einträge',
+              onTap: () => context.go(Routes.settingsTrash),
+            ).animate(delay: 399.ms).fadeIn(),
+
+            _SettingsTile(
+              icon: Icons.schedule_rounded,
+              title: 'Aufbewahrungsdauer',
+              subtitle: () {
+                final days = ref.watch(trashRetentionDaysProvider);
+                return days == null ? 'Unbegrenzt' : '$days Tage';
+              }(),
+              onTap: _showTrashRetentionPicker,
+            ).animate(delay: 399.ms).fadeIn(),
+
+            const SizedBox(height: 24),
             _SectionHeader('Sitzung').animate(delay: 400.ms).fadeIn(),
 
             _SettingsTile(
@@ -402,6 +600,113 @@ class _State extends ConsumerState<SettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ThemeModeSelector extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SegmentedButton<AppThemeMode>(
+        segments: const [
+          ButtonSegment(
+            value: AppThemeMode.dark,
+            label: Text('Dunkel'),
+            icon: Icon(Icons.dark_mode_outlined, size: 18),
+          ),
+          ButtonSegment(
+            value: AppThemeMode.light,
+            label: Text('Hell'),
+            icon: Icon(Icons.light_mode_outlined, size: 18),
+          ),
+        ],
+        selected: {mode},
+        onSelectionChanged: (selection) {
+          ref.read(themeModeProvider.notifier).setMode(selection.first);
+        },
+      ),
+    );
+  }
+}
+
+/// Color picker with an extra "none" swatch that resets to the theme's
+/// default color (used for background/font color overrides, which are
+/// optional unlike the always-set accent color).
+class _OptionalColorPickerTile extends StatelessWidget {
+  const _OptionalColorPickerTile({required this.current, required this.onChanged});
+
+  final Color? current;
+  final ValueChanged<Color?> onChanged;
+
+  static const _colors = [
+    Color(0xFF00C6A0),
+    Color(0xFFFF9500),
+    Color(0xFF0A84FF),
+    Color(0xFFBF5AF2),
+    Color(0xFFFF453A),
+    Color(0xFF32D74B),
+    Color(0xFFFFD60A),
+    Color(0xFF64D2FF),
+    Color(0xFF1C1C1E),
+    Color(0xFFFFFFFF),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          _swatch(
+            context,
+            color: KPasswortColors.surfaceVariant,
+            selected: current == null,
+            onTap: () => onChanged(null),
+            child: Icon(Icons.not_interested_rounded,
+                size: 18, color: KPasswortColors.onSurfaceVariant),
+          ),
+          ..._colors.map((c) => _swatch(
+                context,
+                color: c,
+                selected: current?.value == c.value,
+                onTap: () => onChanged(c),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _swatch(
+    BuildContext context, {
+    required Color color,
+    required bool selected,
+    required VoidCallback onTap,
+    Widget? child,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? KPasswortColors.onSurface : KPasswortColors.outline,
+            width: selected ? 3 : 1,
+          ),
+        ),
+        child: selected
+            ? Icon(Icons.check_rounded,
+                size: 18,
+                color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+            : child,
       ),
     );
   }
@@ -481,7 +786,7 @@ class _VaultListSection extends ConsumerWidget {
               color: KPasswortColors.surfaceVariant,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.lock_outline_rounded,
+            child: Icon(Icons.lock_outline_rounded,
                 color: KPasswortColors.primary, size: 20),
           ),
           title: Text(v.name, style: AppTypography.bodyMedium),
@@ -594,7 +899,7 @@ class _SettingsTile extends StatelessWidget {
       subtitle: subtitle != null ? Text(subtitle!, style: AppTypography.bodySmall) : null,
       trailing: trailing ??
           (onTap != null
-              ? const Icon(Icons.chevron_right_rounded,
+              ? Icon(Icons.chevron_right_rounded,
                   color: KPasswortColors.onSurfaceVariant, size: 20)
               : null),
       onTap: onTap,

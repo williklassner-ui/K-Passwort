@@ -34,7 +34,7 @@ class WelcomeScreen extends StatelessWidget {
                     width: 1,
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.shield_outlined,
                   color: KPasswortColors.primary,
                   size: 36,

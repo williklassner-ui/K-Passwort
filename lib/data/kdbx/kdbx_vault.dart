@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:kdbx/kdbx.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
@@ -37,8 +38,8 @@ class KdbxVault {
     required String masterPassword,
     Uint8List? keyFileBytes,
   }) async {
-    final credentials = _buildCredentials(masterPassword, keyFileBytes);
-    final file = await _format.read(data, credentials);
+    final args = (data, masterPassword, keyFileBytes);
+    final file = await _runOffMainIsolate(_openInIsolate, args);
     return KdbxVault._(file);
   }
 
@@ -51,20 +52,72 @@ class KdbxVault {
     return KdbxVault._(file);
   }
 
+  /// Parses+decrypts a KDBX file. Runs the file's own (Argon2id/AES) KDF,
+  /// which is the slow, CPU-bound part of opening a vault.
+  static Future<KdbxFile> _openInIsolate((Uint8List, String, Uint8List?) args) async {
+    final (data, masterPassword, keyFileBytes) = args;
+    final credentials = _buildCredentials(masterPassword, keyFileBytes);
+    return _format.read(data, credentials);
+  }
+
   Future<Uint8List> encode() async {
+    return _runOffMainIsolate(_encodeInIsolate, _file);
+  }
+
+  /// Serializes+encrypts the vault (XML build, gzip, AES). Slow for vaults
+  /// with large attachments.
+  static Future<Uint8List> _encodeInIsolate(KdbxFile file) async {
     late Uint8List output;
-    await _format.save(_file, (bytes) async {
+    await _format.save(file, (bytes) async {
       output = bytes;
     });
     return output;
   }
 
+  /// Runs [fn] with [arg] in a background isolate via [compute] so the slow
+  /// KDF/serialization work doesn't block the UI thread (and doesn't trip
+  /// Android's ANR watchdog). Some `kdbx` package types may not be safely
+  /// transferable across isolates — if the isolate hand-off itself fails,
+  /// fall back to running synchronously on the calling isolate rather than
+  /// crashing the open/save operation.
+  static Future<R> _runOffMainIsolate<Q, R>(
+    Future<R> Function(Q) fn,
+    Q arg,
+  ) async {
+    try {
+      return await compute(fn, arg);
+    } catch (_) {
+      return fn(arg);
+    }
+  }
+
+  /// Uuid of the recycle-bin group, if one exists yet (only created lazily
+  /// on first delete via [getRecycleBinOrCreate]).
+  String? get _recycleBinId => _file.recycleBin?.uuid.uuid;
+
   List<VaultEntry> get entries {
-    return _file.body.rootGroup.getAllEntries().map(_mapEntry).toList();
+    final binId = _recycleBinId;
+    return _file.body.rootGroup
+        .getAllEntries()
+        .where((e) => binId == null || e.parent?.uuid.uuid != binId)
+        .map(_mapEntry)
+        .toList();
   }
 
   List<VaultGroup> get groups {
-    return _file.body.rootGroup.groups.map(_mapGroup).toList();
+    final binId = _recycleBinId;
+    return _file.body.rootGroup.groups
+        .where((g) => g.uuid.uuid != binId)
+        .map(_mapGroup)
+        .toList();
+  }
+
+  /// Entries currently in the recycle bin ("Papierkorb"), including ones
+  /// inside a deleted (sub)group.
+  List<VaultEntry> get trashedEntries {
+    final bin = _file.recycleBin;
+    if (bin == null) return [];
+    return bin.getAllEntries().map(_mapEntry).toList();
   }
 
   void addEntry(VaultEntry entry) {
@@ -91,10 +144,43 @@ class KdbxVault {
     return _findGroup(groupId) ?? _file.body.rootGroup;
   }
 
+  /// Moves the entry into the recycle bin rather than deleting it outright
+  /// — recoverable via [restoreEntry] until purged or permanently deleted.
   void deleteEntry(String id) {
     final kdbxEntry = _findEntry(id);
     if (kdbxEntry != null) {
+      _file.move(kdbxEntry, _file.getRecycleBinOrCreate());
+    }
+  }
+
+  /// Moves a trashed entry back into the root group.
+  void restoreEntry(String id) {
+    final kdbxEntry = _findEntry(id);
+    if (kdbxEntry != null) {
+      _file.move(kdbxEntry, _file.body.rootGroup);
+    }
+  }
+
+  /// Permanently removes a trashed entry — cannot be undone.
+  void permanentlyDeleteEntry(String id) {
+    final kdbxEntry = _findEntry(id);
+    if (kdbxEntry != null) {
       kdbxEntry.parent?.entries.remove(kdbxEntry);
+    }
+  }
+
+  /// Permanently removes trashed entries whose last-modification (i.e.
+  /// deletion) time is older than [retentionDays] days.
+  void purgeExpiredTrash(int retentionDays) {
+    final bin = _file.recycleBin;
+    if (bin == null) return;
+    final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
+    final expired = bin.getAllEntries().where((e) {
+      final modified = e.times.lastModificationTime.get();
+      return modified != null && modified.isBefore(cutoff);
+    }).toList();
+    for (final e in expired) {
+      e.parent?.entries.remove(e);
     }
   }
 
@@ -114,10 +200,12 @@ class KdbxVault {
     kdbxGroup.name.set(group.name);
   }
 
+  /// Moves the group (and its contents) into the recycle bin rather than
+  /// deleting it outright.
   void deleteGroup(String id) {
     final kdbxGroup = _findGroup(id);
     if (kdbxGroup == null) return;
-    kdbxGroup.parent?.groups.remove(kdbxGroup);
+    _file.move(kdbxGroup, _file.getRecycleBinOrCreate());
   }
 
   KdbxEntry? _findEntry(String uuid) {

@@ -73,7 +73,7 @@ class _AutofillEntrySelectorState extends State<AutofillEntrySelector> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('K-Passwort', style: AppTypography.titleMedium),
+            Text('K-Passwort', style: AppTypography.titleMedium),
             if (_domain != null)
               Text(
                 _domain!,
@@ -107,7 +107,7 @@ class _AutofillEntrySelectorState extends State<AutofillEntrySelector> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.search_off_rounded,
+                            Icon(Icons.search_off_rounded,
                                 size: 48, color: KPasswortColors.onSurfaceVariant),
                             const SizedBox(height: 12),
                             Text(
@@ -131,7 +131,7 @@ class _AutofillEntrySelectorState extends State<AutofillEntrySelector> {
                                 color: KPasswortColors.primary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.lock_outline_rounded,
+                              child: Icon(Icons.lock_outline_rounded,
                                   color: KPasswortColors.primary, size: 20),
                             ),
                             title: Text(e['title'] ?? '', style: AppTypography.titleSmall),

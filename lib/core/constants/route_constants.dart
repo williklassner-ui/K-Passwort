@@ -14,5 +14,6 @@ abstract class Routes {
   static const settings = '/settings';
   static const settingsSecurity = '/settings/security';
   static const settingsSync = '/settings/sync';
+  static const settingsTrash = '/settings/trash';
   static const switchVault = '/vault/switch';
 }

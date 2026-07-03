@@ -45,7 +45,8 @@ class _State extends ConsumerState<EntryDetailScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Eintrag löschen?'),
-        content: Text('"${entry.title}" wird dauerhaft gelöscht.'),
+        content: Text(
+            '"${entry.title}" wird in den Papierkorb verschoben und kann dort wiederhergestellt werden.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx, false),

@@ -21,13 +21,8 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Immersive dark status bar
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Color(0xFF000000),
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  // System UI overlay style (status/nav bar) is set reactively in
+  // app.dart based on the current theme mode.
 
   runApp(const ProviderScope(child: KPasswortApp()));
 }

@@ -33,6 +33,11 @@ class VaultShell extends ConsumerWidget {
         // For pushed sub-routes (entry detail/edit) return false so go_router
         // and any inner PopScope (e.g. discard-changes prompt) handle the pop.
         final loc = GoRouterState.of(context).uri.path;
+        // Settings-Unterseiten: Hardware-Zurück → Settings
+        if (loc == Routes.settingsTrash || loc == Routes.settingsDesign) {
+          context.go(Routes.settings);
+          return true;
+        }
         final atTopLevel = loc == Routes.vault ||
             loc == Routes.generator ||
             loc == Routes.settings;
@@ -40,19 +45,84 @@ class VaultShell extends ConsumerWidget {
 
         final exit = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('App beenden?'),
-            content: const Text('K-Passwort wirklich beenden?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Abbrechen'),
+          barrierDismissible: true,
+          builder: (ctx) => Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            backgroundColor: KPasswortColors.surface,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: KPasswortColors.warning.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.exit_to_app_rounded,
+                      size: 32,
+                      color: KPasswortColors.warning,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'App beenden?',
+                    style: AppTypography.titleLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'K-Passwort wird geschlossen und der Tresor gesperrt.',
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: KPasswortColors.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 28),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: KPasswortColors.outline),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(
+                            'Abbrechen',
+                            style: AppTypography.labelLarge,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: KPasswortColors.warning,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(
+                            'Beenden',
+                            style: AppTypography.labelLarge.copyWith(color: Colors.black),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Beenden'),
-              ),
-            ],
+            ),
           ),
         );
         if (exit == true) SystemNavigator.pop();

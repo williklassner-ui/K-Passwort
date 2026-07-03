@@ -8,8 +8,6 @@ import 'package:k_passwort/core/constants/crypto_constants.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/core/utils/vault_open_flow.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
-import 'package:k_passwort/features/settings/providers/appearance_provider.dart';
-import 'package:k_passwort/features/settings/providers/theme_provider.dart';
 import 'package:k_passwort/features/settings/providers/trash_retention_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
@@ -203,77 +201,6 @@ class _State extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _showFontFamilyPicker() async {
-    const options = <(String?, String)>[
-      ('Inter', 'Inter (Standard)'),
-      ('JetBrainsMono', 'JetBrains Mono'),
-      (null, 'System'),
-    ];
-    final current = ref.read(fontFamilyProvider);
-    await showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Schriftart',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-            ...options.map((opt) => RadioListTile<String?>(
-                  title: Text(opt.$2, style: TextStyle(fontFamily: opt.$1)),
-                  value: opt.$1,
-                  groupValue: current,
-                  onChanged: (v) async {
-                    Navigator.pop(ctx);
-                    await ref.read(fontFamilyProvider.notifier).setFamily(v);
-                  },
-                )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showFontScalePicker() async {
-    const options = <(double, String)>[
-      (0.9, '90%'),
-      (1.0, '100% (Standard)'),
-      (1.15, '115%'),
-      (1.3, '130%'),
-    ];
-    final current = ref.read(fontScaleProvider);
-    await showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Schriftgröße',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-            ...options.map((opt) => RadioListTile<double>(
-                  title: Text(opt.$2),
-                  value: opt.$1,
-                  groupValue: current,
-                  onChanged: (v) async {
-                    Navigator.pop(ctx);
-                    await ref.read(fontScaleProvider.notifier).setScale(v!);
-                  },
-                )),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _migrateToFastDb() async {
     // 1. Explain what happens.
     final proceed = await showDialog<bool>(
@@ -387,48 +314,48 @@ class _State extends ConsumerState<SettingsScreen> {
     final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight + 16;
     return GradientScaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
-      body: SingleChildScrollView(
+      body: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(16, topPadding, 16, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionHeader('Erscheinungsbild').animate().fadeIn(),
+            // Version ganz oben — orange mit Glow
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 24, top: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: KPasswortColors.warning.withOpacity(0.35),
+                      blurRadius: 24,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'K-Passwort Beta 0.5.2',
+                  style: AppTypography.titleLarge.copyWith(
+                    color: KPasswortColors.warning,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                  ),
+                ),
+              ),
+            ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95)),
 
-            _ThemeModeSelector().animate(delay: 10.ms).fadeIn(),
-
-            _ColorPickerTile().animate(delay: 20.ms).fadeIn(),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Text('Hintergrundfarbe (optional)', style: AppTypography.bodySmall),
-            ).animate(delay: 25.ms).fadeIn(),
-            _OptionalColorPickerTile(
-              current: ref.watch(backgroundColorProvider),
-              onChanged: (c) => ref.read(backgroundColorProvider.notifier).setColor(c),
-            ).animate(delay: 30.ms).fadeIn(),
+            _SectionHeader('Erscheinungsbild').animate(delay: 5.ms).fadeIn(),
 
             _SettingsTile(
-              icon: Icons.font_download_outlined,
-              title: 'Schriftart',
-              subtitle: ref.watch(fontFamilyProvider) ?? 'System',
-              onTap: _showFontFamilyPicker,
-            ).animate(delay: 32.ms).fadeIn(),
-
-            _SettingsTile(
-              icon: Icons.format_size_rounded,
-              title: 'Schriftgröße',
-              subtitle: '${(ref.watch(fontScaleProvider) * 100).round()}%',
-              onTap: _showFontScalePicker,
-            ).animate(delay: 34.ms).fadeIn(),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Text('Schriftfarbe (optional)', style: AppTypography.bodySmall),
-            ).animate(delay: 36.ms).fadeIn(),
-            _OptionalColorPickerTile(
-              current: ref.watch(fontColorProvider),
-              onChanged: (c) => ref.read(fontColorProvider.notifier).setColor(c),
-            ).animate(delay: 38.ms).fadeIn(),
+              icon: Icons.palette_outlined,
+              title: 'Design',
+              subtitle: 'Farben, Schrift, Theme',
+              onTap: () => context.go(Routes.settingsDesign),
+              trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+            ).animate(delay: 10.ms).fadeIn(),
 
             const SizedBox(height: 24),
             _SectionHeader('Sicherheit').animate(delay: 40.ms).fadeIn(),
@@ -592,171 +519,9 @@ class _State extends ConsumerState<SettingsScreen> {
             ).animate(delay: 450.ms).fadeIn(),
 
             const SizedBox(height: 32),
-            Center(
-              child: Text(
-                'K-Passwort Beta 0.5.1 — KDBX 4.x kompatibel',
-                style: AppTypography.bodySmall,
-              ).animate(delay: 500.ms).fadeIn(),
-            ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ThemeModeSelector extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SegmentedButton<AppThemeMode>(
-        segments: const [
-          ButtonSegment(
-            value: AppThemeMode.dark,
-            label: Text('Dunkel'),
-            icon: Icon(Icons.dark_mode_outlined, size: 18),
-          ),
-          ButtonSegment(
-            value: AppThemeMode.light,
-            label: Text('Hell'),
-            icon: Icon(Icons.light_mode_outlined, size: 18),
-          ),
-        ],
-        selected: {mode},
-        onSelectionChanged: (selection) {
-          ref.read(themeModeProvider.notifier).setMode(selection.first);
-        },
-      ),
-    );
-  }
-}
-
-/// Color picker with an extra "none" swatch that resets to the theme's
-/// default color (used for background/font color overrides, which are
-/// optional unlike the always-set accent color).
-class _OptionalColorPickerTile extends StatelessWidget {
-  const _OptionalColorPickerTile({required this.current, required this.onChanged});
-
-  final Color? current;
-  final ValueChanged<Color?> onChanged;
-
-  static const _colors = [
-    Color(0xFF00C6A0),
-    Color(0xFFFF9500),
-    Color(0xFF0A84FF),
-    Color(0xFFBF5AF2),
-    Color(0xFFFF453A),
-    Color(0xFF32D74B),
-    Color(0xFFFFD60A),
-    Color(0xFF64D2FF),
-    Color(0xFF1C1C1E),
-    Color(0xFFFFFFFF),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          _swatch(
-            context,
-            color: KPasswortColors.surfaceVariant,
-            selected: current == null,
-            onTap: () => onChanged(null),
-            child: Icon(Icons.not_interested_rounded,
-                size: 18, color: KPasswortColors.onSurfaceVariant),
-          ),
-          ..._colors.map((c) => _swatch(
-                context,
-                color: c,
-                selected: current?.value == c.value,
-                onTap: () => onChanged(c),
-              )),
-        ],
-      ),
-    );
-  }
-
-  Widget _swatch(
-    BuildContext context, {
-    required Color color,
-    required bool selected,
-    required VoidCallback onTap,
-    Widget? child,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? KPasswortColors.onSurface : KPasswortColors.outline,
-            width: selected ? 3 : 1,
-          ),
-        ),
-        child: selected
-            ? Icon(Icons.check_rounded,
-                size: 18,
-                color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white)
-            : child,
-      ),
-    );
-  }
-}
-
-class _ColorPickerTile extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final accent = ref.watch(themeProvider);
-    const colors = [
-      Color(0xFF00C6A0), // Teal (original)
-      Color(0xFFFF9500), // Orange
-      Color(0xFF0A84FF), // Blue
-      Color(0xFFBF5AF2), // Purple
-      Color(0xFFFF453A), // Red
-      Color(0xFF32D74B), // Green
-      Color(0xFFFFD60A), // Yellow
-      Color(0xFFFF2D55), // Pink
-      Color(0xFF64D2FF), // Cyan
-      Color(0xFF30D158), // Lime green
-      Color(0xFF5E5CE6), // Indigo
-      Color(0xFFFFBF00), // Amber
-      Color(0xFFFF6B00), // Deep Orange
-      Color(0xFF50C2C9), // Light Blue
-      Color(0xFF00DDB3), // Teal Accent
-      Color(0xFFF2F2F7), // White
-    ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: colors.map((c) {
-          final selected = accent.value == c.value;
-          return GestureDetector(
-            onTap: () => ref.read(themeProvider.notifier).setColor(c),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: c,
-                shape: BoxShape.circle,
-                border: selected ? Border.all(color: Colors.white, width: 3) : null,
-              ),
-              child: selected
-                  ? const Icon(Icons.check_rounded, size: 20, color: Colors.white)
-                  : null,
-            ),
-          );
-        }).toList(),
       ),
     );
   }

@@ -1,7 +1,7 @@
 name: k_passwort
 description: Premium zero-knowledge password manager — KeePass-compatible KDBX 4.x
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: '>=3.4.0 <4.0.0'

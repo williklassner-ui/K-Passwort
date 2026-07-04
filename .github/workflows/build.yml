@@ -85,7 +85,9 @@ jobs:
       # automatisch nach ([CXX1300]).
       - name: Install CMake 3.10.2 (needed by argon2_ffi)
         run: |
-          yes | sdkmanager --install "cmake;3.10.2.4988404" || true
+          SDKMANAGER="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)"
+          echo "sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --install "cmake;3.10.2.4988404" || true
           ls "$ANDROID_HOME/cmake/3.10.2.4988404/bin/cmake"
 
       - name: Build APK (release)

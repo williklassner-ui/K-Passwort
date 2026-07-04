@@ -80,6 +80,16 @@ jobs:
       - name: Run code generation
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
+      # Das argon2_ffi-Plugin pinnt CMake 3.10.2; auf dem Runner ist nur
+      # 3.22.1 vorinstalliert und AGP installiert gepinnte Versionen nicht
+      # automatisch nach ([CXX1300]).
+      - name: Install CMake 3.10.2 (needed by argon2_ffi)
+        run: |
+          SDKMANAGER="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)"
+          echo "sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --install "cmake;3.10.2.4988404" || true
+          ls "$ANDROID_HOME/cmake/3.10.2.4988404/bin/cmake"
+
       - name: Build APK (release)
         run: flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
 

@@ -20,6 +20,7 @@ dependencies:
 
   # KDBX 4.x (KeePass-compatible)
   kdbx: any
+  argon2_ffi_flutter: ^2.0.0
 
   # Crypto
   pointycastle: ^3.9.1

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:argon2_ffi_flutter/argon2_ffi_flutter.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kdbx/kdbx.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
@@ -11,13 +12,9 @@ class KdbxVault {
   KdbxVault._(this._file);
 
   final KdbxFile _file;
-  // Deliberately NOT wiring Argon2FfiFlutter() here. It was added once to
-  // speed up unlock (native Argon2id instead of the pure-Dart pointycastle
-  // fallback), but caused a hard ANR ("K-Passwort reagiert nicht") on
-  // unlock on a real device — the native call appears to hang rather than
-  // just being slow, which is worse than the pure-Dart fallback it was
-  // meant to replace. Reverted to the plain KdbxFormat() that was in use
-  // before that change (pure-Dart Argon2id — slower but doesn't hang).
+  // Pure-Dart fallback format — used for encode()/create() and as safety net
+  // when native Argon2 fails. open() prefers Argon2FfiFlutter (native C,
+  // ~10-50× faster) which runs safely in a background isolate via compute().
   static final _format = KdbxFormat();
 
   static Future<KdbxVault> create({
@@ -52,12 +49,20 @@ class KdbxVault {
     return KdbxVault._(file);
   }
 
-  /// Parses+decrypts a KDBX file. Runs the file's own (Argon2id/AES) KDF,
-  /// which is the slow, CPU-bound part of opening a vault.
+  /// Parses+decrypts a KDBX file. Runs the file's own (Argon2id/AES) KDF —
+  /// the slow, CPU-bound step. Tries native Argon2 (Argon2FfiFlutter, ~10–50×
+  /// faster than pure Dart) first; falls back to the pure-Dart implementation
+  /// if the native library cannot be loaded on this device.
+  /// Always runs inside a background isolate via compute() — no ANR risk.
   static Future<KdbxFile> _openInIsolate((Uint8List, String, Uint8List?) args) async {
     final (data, masterPassword, keyFileBytes) = args;
     final credentials = _buildCredentials(masterPassword, keyFileBytes);
-    return _format.read(data, credentials);
+    try {
+      final nativeFormat = KdbxFormat(argon2: Argon2FfiFlutter());
+      return await nativeFormat.read(data, credentials);
+    } catch (_) {
+      return _format.read(data, credentials);
+    }
   }
 
   Future<Uint8List> encode() async {

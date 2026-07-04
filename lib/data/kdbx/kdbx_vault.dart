@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:argon2_ffi_flutter/argon2_ffi_flutter.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kdbx/kdbx.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
@@ -12,9 +11,9 @@ class KdbxVault {
   KdbxVault._(this._file);
 
   final KdbxFile _file;
-  // Pure-Dart fallback format — used for encode()/create() and as safety net
-  // when native Argon2 fails. open() prefers Argon2FfiFlutter (native C,
-  // ~10-50× faster) which runs safely in a background isolate via compute().
+  // Pure-Dart Argon2id — läuft im Hintergrund-Isolate via compute(),
+  // kein ANR-Risiko. Native Argon2 (Argon2FfiFlutter aus package:kdbx)
+  // wäre ~10-50× schneller, muss aber erst korrekt integriert werden.
   static final _format = KdbxFormat();
 
   static Future<KdbxVault> create({
@@ -49,20 +48,10 @@ class KdbxVault {
     return KdbxVault._(file);
   }
 
-  /// Parses+decrypts a KDBX file. Runs the file's own (Argon2id/AES) KDF —
-  /// the slow, CPU-bound step. Tries native Argon2 (Argon2FfiFlutter, ~10–50×
-  /// faster than pure Dart) first; falls back to the pure-Dart implementation
-  /// if the native library cannot be loaded on this device.
-  /// Always runs inside a background isolate via compute() — no ANR risk.
   static Future<KdbxFile> _openInIsolate((Uint8List, String, Uint8List?) args) async {
     final (data, masterPassword, keyFileBytes) = args;
     final credentials = _buildCredentials(masterPassword, keyFileBytes);
-    try {
-      final nativeFormat = KdbxFormat(argon2: Argon2FfiFlutter());
-      return await nativeFormat.read(data, credentials);
-    } catch (_) {
-      return _format.read(data, credentials);
-    }
+    return _format.read(data, credentials);
   }
 
   Future<Uint8List> encode() async {

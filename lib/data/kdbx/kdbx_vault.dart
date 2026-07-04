@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:argon2_ffi_base/argon2_ffi_base.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kdbx/kdbx.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
@@ -11,9 +12,10 @@ class KdbxVault {
   KdbxVault._(this._file);
 
   final KdbxFile _file;
-  // Pure-Dart Argon2id — läuft im Hintergrund-Isolate via compute(),
-  // kein ANR-Risiko. Native Argon2 (Argon2FfiFlutter aus package:kdbx)
-  // wäre ~10-50× schneller, muss aber erst korrekt integriert werden.
+  // Natives Argon2 (C via FFI, ~10-50× schneller als pure Dart).
+  // libargon2_ffi.so kommt aus dem argon2_ffi-Plugin.
+  static final _nativeFormat = KdbxFormat(Argon2FfiFlutter());
+  // Pure-Dart-Fallback, falls die native Bibliothek nicht ladbar ist.
   static final _format = KdbxFormat();
 
   static Future<KdbxVault> create({
@@ -44,27 +46,51 @@ class KdbxVault {
     required SecureKey masterKey,
   }) async {
     final credentials = Credentials(ProtectedValue.fromBinary(masterKey.bytes));
-    final file = await _format.read(data, credentials);
+    KdbxFile file;
+    try {
+      file = await _nativeFormat.read(data, credentials);
+    } on ArgumentError catch (_) {
+      file = await _format.read(data, credentials);
+    } on UnsupportedError catch (_) {
+      file = await _format.read(data, credentials);
+    }
     return KdbxVault._(file);
   }
 
+  /// Parses+decrypts a KDBX file — der langsame, CPU-lastige KDF-Schritt.
+  /// Nativ zuerst; Fallback NUR bei Bibliotheks-Ladefehler (DynamicLibrary.open
+  /// wirft ArgumentError/UnsupportedError). Ein falsches Passwort propagiert
+  /// direkt und läuft nicht nochmal durch das langsame Pure-Dart-Argon2.
   static Future<KdbxFile> _openInIsolate((Uint8List, String, Uint8List?) args) async {
     final (data, masterPassword, keyFileBytes) = args;
     final credentials = _buildCredentials(masterPassword, keyFileBytes);
-    return _format.read(data, credentials);
+    try {
+      return await _nativeFormat.read(data, credentials);
+    } on ArgumentError catch (_) {
+      return _format.read(data, credentials);
+    } on UnsupportedError catch (_) {
+      return _format.read(data, credentials);
+    }
   }
 
   Future<Uint8List> encode() async {
     return _runOffMainIsolate(_encodeInIsolate, _file);
   }
 
-  /// Serializes+encrypts the vault (XML build, gzip, AES). Slow for vaults
-  /// with large attachments.
+  /// Serializes+encrypts the vault (XML build, gzip, AES). Führt denselben
+  /// KDF aus wie das Öffnen — daher ebenfalls nativ zuerst.
   static Future<Uint8List> _encodeInIsolate(KdbxFile file) async {
     late Uint8List output;
-    await _format.save(file, (bytes) async {
-      output = bytes;
-    });
+    Future<void> saveWith(KdbxFormat format) => format.save(file, (bytes) async {
+          output = bytes;
+        });
+    try {
+      await saveWith(_nativeFormat);
+    } on ArgumentError catch (_) {
+      await saveWith(_format);
+    } on UnsupportedError catch (_) {
+      await saveWith(_format);
+    }
     return output;
   }
 

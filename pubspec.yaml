@@ -1,7 +1,7 @@
 name: k_passwort
 description: Premium zero-knowledge password manager — KeePass-compatible KDBX 4.x
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.0.3+4
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -20,6 +20,11 @@ dependencies:
 
   # KDBX 4.x (KeePass-compatible)
   kdbx: any
+  # Natives Argon2 (C via FFI) — bündelt libargon2_ffi.so ins APK.
+  # Gleiche Autoren wie kdbx (authpass); `any` wie bei kdbx, damit pub
+  # die zueinander kompatiblen Versionen selbst auflöst.
+  argon2_ffi: any
+  argon2_ffi_base: any
 
   # Crypto
   pointycastle: ^3.9.1

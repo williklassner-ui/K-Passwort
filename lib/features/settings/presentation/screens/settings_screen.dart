@@ -68,28 +68,31 @@ class _State extends ConsumerState<SettingsScreen> {
   }
 
   /// SAF content:// URIs have no real filesystem path. This derives the
-  /// most human-readable label available: the decoded document-id path
-  /// segment (e.g. "Documents/vault.kdbx") when present, falling back to
-  /// the file's display name via [SafStorage.getFileInfo]. Previously this
-  /// showed a raw, still percent-encoded substring of the opaque URI, which
-  /// looked like meaningless garbage to the user.
+  /// most human-readable label available: the file's display name via
+  /// [SafStorage.getFileInfo] (works for any provider, including Google
+  /// Drive's opaque document IDs) first, falling back to the decoded
+  /// document-id path segment (e.g. "Documents/vault.kdbx") for providers
+  /// where that segment is a real authority:path string. Some providers
+  /// (e.g. Google Drive) use opaque document IDs like
+  /// "acc=3;doc=encoded=..." with no ':' path structure — trying the path
+  /// heuristic first showed that raw garbage instead of the real name.
   Future<String> _describeVaultLocation(String uri) async {
-    String? decodedPath;
+    try {
+      final info = await SafStorage.getFileInfo(uri);
+      final name = info?['name'] as String?;
+      if (name != null && name.isNotEmpty) return name;
+    } catch (_) {}
+
     try {
       final segments = Uri.parse(uri).pathSegments;
       if (segments.isNotEmpty) {
         final decoded = Uri.decodeComponent(segments.last);
         final colonIndex = decoded.indexOf(':');
-        decodedPath = colonIndex >= 0 ? decoded.substring(colonIndex + 1) : decoded;
+        if (colonIndex >= 0) {
+          final decodedPath = decoded.substring(colonIndex + 1);
+          if (decodedPath.isNotEmpty) return decodedPath;
+        }
       }
-    } catch (_) {}
-
-    if (decodedPath != null && decodedPath.isNotEmpty) return decodedPath;
-
-    try {
-      final info = await SafStorage.getFileInfo(uri);
-      final name = info?['name'] as String?;
-      if (name != null && name.isNotEmpty) return name;
     } catch (_) {}
 
     return uri.length > 50 ? '…${uri.substring(uri.length - 50)}' : uri;

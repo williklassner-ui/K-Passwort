@@ -77,6 +77,22 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # TEMPORARY diagnostic step — verifies whether kdbx's KDF-parameter
+      # classes are part of the public export surface before writing real
+      # code against them. Removed again in the follow-up commit.
+      - name: DEBUG dump kdbx public export surface
+        run: |
+          KDBX_DIR="$(find "$PUB_CACHE"/hosted -maxdepth 2 -type d -name "kdbx-*" | head -1)"
+          echo "---- lib/kdbx.dart (main export barrel) ----"
+          cat "$KDBX_DIR"/lib/kdbx.dart
+          echo "---- KdbxHeader class + 'header' getter + fields ----"
+          grep -n "class KdbxHeader\|get header\|Map<HeaderFields\|fields\[" \
+            "$KDBX_DIR"/lib/src/kdbx_format.dart "$KDBX_DIR"/lib/src/kdbx_header.dart
+          echo "---- VarDictionary / write() ----"
+          grep -n "class VarDictionary\|Uint8List write\|class HeaderField" \
+            "$KDBX_DIR"/lib/src/kdbx_var_dictionary.dart "$KDBX_DIR"/lib/src/kdbx_header.dart
+          exit 1
+
       - name: Run code generation
         run: flutter pub run build_runner build --delete-conflicting-outputs
 

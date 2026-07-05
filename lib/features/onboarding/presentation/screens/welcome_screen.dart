@@ -51,33 +51,20 @@ class WelcomeScreen extends StatelessWidget {
                   .fadeIn()
                   .slideY(begin: 0.1),
 
-              const SizedBox(height: 12),
-
-              Text(
-                'Dein sicherer, privater Passwort-Tresor.\nKeePass-kompatibel, kein Cloud-Account.',
-                style: AppTypography.bodyLarge.copyWith(
-                  color: KPasswortColors.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ).animate(delay: 250.ms).fadeIn().slideY(begin: 0.1),
-
-              const Spacer(flex: 2),
-
-              // Feature list
-              ..._features.asMap().entries.map((e) =>
-                _FeatureTile(icon: e.value.$1, label: e.value.$2)
-                    .animate(delay: (350 + e.key * 80).ms)
-                    .fadeIn()
-                    .slideX(begin: -0.05)
-              ),
-
               const Spacer(flex: 3),
 
-              // Actions
+              // Actions — größer, vertikal mittig
               SizedBox(
                 width: double.infinity,
+                height: 64,
                 child: ElevatedButton(
                   onPressed: () => context.go(Routes.onboardingCreateVault),
+                  style: ElevatedButton.styleFrom(
+                    textStyle: AppTypography.labelLarge.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   child: const Text('Neuen Tresor erstellen'),
                 ),
               )
@@ -85,16 +72,20 @@ class WelcomeScreen extends StatelessWidget {
                   .fadeIn()
                   .slideY(begin: 0.1),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               SizedBox(
                 width: double.infinity,
+                height: 64,
                 child: OutlinedButton(
                   onPressed: () => pickAndOpenExistingVault(context),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
                     side: BorderSide(color: KPasswortColors.outline),
                     foregroundColor: KPasswortColors.onBackground,
+                    textStyle: AppTypography.labelLarge.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -106,46 +97,10 @@ class WelcomeScreen extends StatelessWidget {
                   .fadeIn()
                   .slideY(begin: 0.1),
 
-              const SizedBox(height: 40),
+              const Spacer(flex: 3),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  static const _features = [
-    (Icons.lock_outline_rounded, 'AES-256 + Argon2id Verschlüsselung'),
-    (Icons.sync_rounded, 'Sync via Google Drive — kein Account'),
-    (Icons.fingerprint_rounded, 'Biometrisches Entsperren'),
-    (Icons.auto_fix_high_outlined, 'Android Autofill'),
-  ];
-}
-
-class _FeatureTile extends StatelessWidget {
-  const _FeatureTile({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: KPasswortColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: KPasswortColors.primary, size: 18),
-          ),
-          const SizedBox(width: 14),
-          Text(label, style: AppTypography.bodyMedium),
-        ],
       ),
     );
   }

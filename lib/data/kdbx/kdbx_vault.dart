@@ -3,6 +3,14 @@ import 'dart:typed_data';
 import 'package:argon2_ffi_base/argon2_ffi_base.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:kdbx/kdbx.dart';
+// kdbx's own KDF-parameter classes for a new vault's header aren't part of
+// the package's public export surface (verified against kdbx 2.4.2 source
+// via CI) — only reachable through these internal imports. If a future
+// kdbx version moves/renames these, `flutter analyze` fails loudly at
+// compile time (missing symbols), not silently at runtime.
+import 'package:kdbx/src/kdbx_header.dart' show HeaderField, HeaderFields;
+import 'package:kdbx/src/kdbx_var_dictionary.dart' show VarDictionary;
+import 'package:k_passwort/core/constants/crypto_constants.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
 import 'package:k_passwort/security/crypto/secure_key.dart';
@@ -49,7 +57,31 @@ class KdbxVault {
       'K-Passwort Vault',
       generator: 'K-Passwort',
     );
+    _applyMobileKdfParameters(file);
     return KdbxVault._(file);
+  }
+
+  /// kdbx's built-in Argon2 default (1 MiB Speicher, 2 Iterationen, 1-fache
+  /// Parallelität — siehe kdbx-Quellcode `kdbx_header.dart` `Consts`) liegt
+  /// weit unter jeder Sicherheitsempfehlung (OWASP-Minimum: 19 MiB). Da
+  /// `create()` keinen öffentlichen Parameter dafür bietet, wird der
+  /// Header-Eintrag direkt danach mit mobil-kalibrierten Werten
+  /// überschrieben — 1:1 nach dem Aufbau von kdbx's eigener (privater)
+  /// `_createKdfDefaultParameters()`. Sicher, weil die Argon2-Schlüssel-
+  /// ableitung erst bei encode()/save() aus dem dann aktuellen
+  /// Header-Zustand passiert, nicht bereits hier bei create() (verifiziert
+  /// gegen den kdbx-Quellcode).
+  static void _applyMobileKdfParameters(KdbxFile file) {
+    final kdfParams = VarDictionary([
+      KdfField.uuid.item(KeyEncrypterKdf.kdfUuidForType(KdfType.Argon2).toBytes()),
+      KdfField.salt.item(ByteUtils.randomBytes(32)),
+      KdfField.parallelism.item(CryptoConstants.vaultArgon2Parallelism),
+      KdfField.iterations.item(CryptoConstants.vaultArgon2Iterations),
+      KdfField.memory.item(CryptoConstants.vaultArgon2MemoryKib * 1024),
+      KdfField.version.item(0x13),
+    ]);
+    file.header.fields[HeaderFields.KdfParameters] =
+        HeaderField(HeaderFields.KdfParameters, kdfParams.write());
   }
 
   static Future<KdbxVault> open({

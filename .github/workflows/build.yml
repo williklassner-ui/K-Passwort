@@ -77,21 +77,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # TEMPORARY diagnostic step — verifies whether kdbx's KDF-parameter
-      # classes are part of the public export surface before writing real
-      # code against them. Removed again in the follow-up commit.
-      - name: DEBUG dump kdbx public export surface
-        run: |
-          KDBX_DIR="$(find "$PUB_CACHE"/hosted -maxdepth 2 -type d -name "kdbx-*" | head -1)"
-          echo "---- create() method body ----"
-          awk '/KdbxFile create\(/,/^  }/' "$KDBX_DIR"/lib/src/kdbx_format.dart
-          echo "---- save()/encode/_encryptData or similar, where KeyEncrypterKdf.encrypt is called ----"
-          grep -n "KeyEncrypterKdf\|\.encrypt(\|deriveKey\|_generateContentKey\|Future.*save(" \
-            "$KDBX_DIR"/lib/src/kdbx_format.dart
-          echo "---- full context around each KeyEncrypterKdf/encrypt call ----"
-          grep -n -B5 -A20 "KeyEncrypterKdf(\|\.encrypt(key" "$KDBX_DIR"/lib/src/kdbx_format.dart
-          exit 1
-
       - name: Run code generation
         run: flutter pub run build_runner build --delete-conflicting-outputs
 

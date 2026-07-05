@@ -31,6 +31,7 @@ class _State extends ConsumerState<SettingsScreen> {
   bool _biometricEnabled = false;
   String? _vaultUri;
   String? _vaultLocationLabel;
+  String? _lastOpenDiagnostic;
   final _bioService = BiometricService();
   bool _biometricAvailable = false;
   bool _screenshotBlocked = false;
@@ -62,6 +63,7 @@ class _State extends ConsumerState<SettingsScreen> {
       _screenshotBlocked = prefs.getBool(_screenshotKey) ?? false;
       _autoLockMs = prefs.getInt('auto_lock_ms') ?? CryptoConstants.autoLockDelayMs;
       _lockOnScreenOff = prefs.getBool('lock_on_screen_off') ?? false;
+      _lastOpenDiagnostic = prefs.getString('last_open_diagnostic');
     });
   }
 
@@ -346,6 +348,20 @@ class _State extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95)),
+
+            if (_lastOpenDiagnostic != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Center(
+                  child: Text(
+                    'Letztes Entsperren: $_lastOpenDiagnostic',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: KPasswortColors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
 
             _SectionHeader('Erscheinungsbild').animate(delay: 5.ms).fadeIn(),
 

@@ -6,6 +6,7 @@ import 'package:kdbx/kdbx.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
 import 'package:k_passwort/security/crypto/secure_key.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wrapper around the kdbx package — provides KDBX read/write.
 class KdbxVault {
@@ -17,6 +18,26 @@ class KdbxVault {
   static final _nativeFormat = KdbxFormat(Argon2FfiFlutter());
   // Pure-Dart-Fallback, falls die native Bibliothek nicht ladbar ist.
   static final _format = KdbxFormat();
+
+  static const _diagnosticKey = 'last_open_diagnostic';
+
+  /// Diagnose des letzten Entsperrvorgangs (welcher Pfad lief, wie lange es
+  /// dauerte, bei Fallback inkl. Fehlergrund) — sichtbar in den Settings.
+  static String? lastOpenDiagnostic;
+
+  static Future<void> _recordDiagnostic(String path, int elapsedMs, String? error) async {
+    final diagnostic = error == null
+        ? '$path · $elapsedMs ms'
+        : '$path · $elapsedMs ms · Grund: $error';
+    lastOpenDiagnostic = diagnostic;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_diagnosticKey, diagnostic);
+  }
+
+  static String _describeError(Object e) {
+    final text = '$e';
+    return text.length > 200 ? text.substring(0, 200) : text;
+  }
 
   static Future<KdbxVault> create({
     required String masterPassword,
@@ -37,7 +58,8 @@ class KdbxVault {
     Uint8List? keyFileBytes,
   }) async {
     final args = (data, masterPassword, keyFileBytes);
-    final file = await _runOffMainIsolate(_openInIsolate, args);
+    final (file, path, elapsedMs, error) = await _runOffMainIsolate(_openInIsolate, args);
+    await _recordDiagnostic(path, elapsedMs, error);
     return KdbxVault._(file);
   }
 
@@ -46,30 +68,42 @@ class KdbxVault {
     required SecureKey masterKey,
   }) async {
     final credentials = Credentials(ProtectedValue.fromBinary(masterKey.bytes));
+    final stopwatch = Stopwatch()..start();
     KdbxFile file;
+    String path;
+    String? error;
     try {
       file = await _nativeFormat.read(data, credentials);
-    } on ArgumentError catch (_) {
+      path = 'nativ';
+    } catch (e) {
+      error = _describeError(e);
       file = await _format.read(data, credentials);
-    } on UnsupportedError catch (_) {
-      file = await _format.read(data, credentials);
+      path = 'Fallback (Pure-Dart)';
     }
+    stopwatch.stop();
+    await _recordDiagnostic(path, stopwatch.elapsedMilliseconds, error);
     return KdbxVault._(file);
   }
 
   /// Parses+decrypts a KDBX file — der langsame, CPU-lastige KDF-Schritt.
-  /// Nativ zuerst; Fallback NUR bei Bibliotheks-Ladefehler (DynamicLibrary.open
-  /// wirft ArgumentError/UnsupportedError). Ein falsches Passwort propagiert
-  /// direkt und läuft nicht nochmal durch das langsame Pure-Dart-Argon2.
-  static Future<KdbxFile> _openInIsolate((Uint8List, String, Uint8List?) args) async {
+  /// Nativ zuerst; bei JEDEM Fehler (Diagnose-Zweck: die genaue Ursache ist
+  /// unbekannt) Fallback auf Pure-Dart. Liefert zusätzlich mit zurück,
+  /// welcher Pfad lief, wie lange es dauerte und — bei Fallback — warum.
+  static Future<(KdbxFile, String, int, String?)> _openInIsolate(
+    (Uint8List, String, Uint8List?) args,
+  ) async {
     final (data, masterPassword, keyFileBytes) = args;
     final credentials = _buildCredentials(masterPassword, keyFileBytes);
+    final stopwatch = Stopwatch()..start();
     try {
-      return await _nativeFormat.read(data, credentials);
-    } on ArgumentError catch (_) {
-      return _format.read(data, credentials);
-    } on UnsupportedError catch (_) {
-      return _format.read(data, credentials);
+      final file = await _nativeFormat.read(data, credentials);
+      stopwatch.stop();
+      return (file, 'nativ', stopwatch.elapsedMilliseconds, null);
+    } catch (e) {
+      final error = _describeError(e);
+      final file = await _format.read(data, credentials);
+      stopwatch.stop();
+      return (file, 'Fallback (Pure-Dart)', stopwatch.elapsedMilliseconds, error);
     }
   }
 

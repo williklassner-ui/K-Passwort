@@ -92,6 +92,19 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
     }
   }
 
+  /// The name passed to [SafStorage.createKdbxFile] is only a suggestion —
+  /// the document provider (e.g. Google Drive) may pick a different actual
+  /// name (dedupe suffix, user edits it in the picker, etc.). Reads back
+  /// the real name so the vault list doesn't show a stale/wrong label.
+  Future<String> _vaultName(String uri) async {
+    try {
+      final info = await SafStorage.getFileInfo(uri);
+      return (info?['name'] as String?) ?? AppConstants.defaultVaultName;
+    } catch (_) {
+      return AppConstants.defaultVaultName;
+    }
+  }
+
   Future<void> _proceed() async {
     final password = _passwordController.text;
     if (password.isEmpty) {
@@ -119,7 +132,7 @@ class _State extends ConsumerState<MasterPasswordSetupScreen> {
           return;
         }
         vaultUri = uri;
-        vaultName = AppConstants.defaultVaultName;
+        vaultName = await _vaultName(uri);
         await SyncStateNotifier.saveVaultUri(uri);
         await repo.create(vaultUri: uri, masterPassword: password);
         await keyManager.unlockWithPassword(password: password);

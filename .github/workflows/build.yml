@@ -86,18 +86,11 @@ jobs:
         run: |
           KDBX_DIR="$(find "$PUB_CACHE"/hosted -maxdepth 2 -type d -name "kdbx-*" | head -1)"
           echo "KDBX_DIR=$KDBX_DIR"
-          echo "---- files mentioning Argon2/Kdf ----"
-          grep -rl "Argon2\|KdfParameters" "$KDBX_DIR"/lib || true
-          echo "---- create() signature in kdbx_format.dart ----"
-          grep -n -A 15 "create(" "$KDBX_DIR"/lib/src/kdbx_format.dart || true
-          echo "---- full dump of Argon2/Kdf-related files ----"
-          for f in $(find "$KDBX_DIR" -iname "*argon2*" -o -iname "*kdf*"); do
-            echo "===== $f ====="
-            cat "$f"
-          done
-          echo "---- full dump of argon2_ffi_base ----"
-          FFI_BASE_DIR="$(find "$PUB_CACHE"/hosted -maxdepth 2 -type d -name "argon2_ffi_base-*" | head -1)"
-          find "$FFI_BASE_DIR" -name "*.dart" -exec sh -c 'echo "===== {} ====="; cat "{}"' \;
+          echo "---- full dump of kdbx_header.dart ----"
+          cat "$KDBX_DIR"/lib/src/kdbx_header.dart
+          echo "---- class KdbxFormat context in kdbx_format.dart ----"
+          grep -n "class KdbxFormat" "$KDBX_DIR"/lib/src/kdbx_format.dart
+          awk '/class KdbxFormat/,0' "$KDBX_DIR"/lib/src/kdbx_format.dart | head -200
           exit 1
 
       - name: Run code generation

@@ -261,7 +261,7 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
                     child: CachedNetworkImage(
                       imageUrl: candidateUrl,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => const Icon(
+                      errorWidget: (_, __, ___) => Icon(
                         Icons.broken_image_outlined,
                         color: KPasswortColors.onSurfaceVariant,
                       ),

@@ -6,6 +6,11 @@ part 'vault_entry.g.dart';
 
 enum EntryType { login, card, note, identity, sshKey, wifi, custom }
 
+/// Which source is authoritative for an entry's thumbnail — explicit flag
+/// rather than inferring from which of iconCode/iconImageBase64/iconUrl
+/// happens to be non-null (avoids stale-data bugs when switching sources).
+enum EntryIconType { auto, materialIcon, image, webThumbnail }
+
 enum CustomFieldType { text, password, number, email, url, username, date }
 
 @freezed
@@ -31,6 +36,9 @@ class VaultEntry with _$VaultEntry {
     @Default([]) List<CustomField> customFields,
     @Default([]) List<VaultAttachment> attachments,
     String? totpSecret,
+    @Default(EntryIconType.auto) EntryIconType iconType,
+    int? iconCode,
+    String? iconImageBase64,
     String? iconUrl,
     String? groupId,
     required DateTime createdAt,

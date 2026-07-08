@@ -314,6 +314,7 @@ class KdbxVault {
   static final _tagsKey = KdbxKey('__kpa_tags');
   static final _favoriteKey = KdbxKey('__kpa_favorite');
   static final _typeKey = KdbxKey('__kpa_type');
+  static final _iconMetaKey = KdbxKey('__kpa_icon_meta');
   static const _attPrefix = '__kpa_att_';
 
   VaultEntry _mapEntry(KdbxEntry e) {
@@ -398,6 +399,25 @@ class KdbxVault {
             EntryType.login
         : EntryType.login;
 
+    // Icon selection (Material icon / custom image / web thumbnail)
+    final iconMetaRaw = e.getString(_iconMetaKey)?.getText();
+    var iconType = EntryIconType.auto;
+    int? iconCode;
+    String? iconImageBase64;
+    String? iconUrl;
+    if (iconMetaRaw != null && iconMetaRaw.isNotEmpty) {
+      try {
+        final m = jsonDecode(iconMetaRaw) as Map<String, dynamic>;
+        iconType = EntryIconType.values
+                .where((t) => t.name == m['type'])
+                .firstOrNull ??
+            EntryIconType.auto;
+        iconCode = m['code'] as int?;
+        iconImageBase64 = m['image'] as String?;
+        iconUrl = m['url'] as String?;
+      } catch (_) {}
+    }
+
     return VaultEntry(
       id: e.uuid.uuid,
       title: e.getString(KdbxKeyCommon.TITLE)?.getText() ?? '',
@@ -413,6 +433,10 @@ class KdbxVault {
       groupId: e.parent?.uuid.uuid,
       tags: tags,
       isFavorite: isFavorite,
+      iconType: iconType,
+      iconCode: iconCode,
+      iconImageBase64: iconImageBase64,
+      iconUrl: iconUrl,
     );
   }
 
@@ -497,6 +521,17 @@ class KdbxVault {
     // isFavorite + EntryType
     entry.setString(_favoriteKey, PlainValue(data.isFavorite.toString()));
     entry.setString(_typeKey, PlainValue(data.type.name));
+
+    // Icon selection — not a secret, PlainValue like the other metadata.
+    if (data.iconType != EntryIconType.auto) {
+      final iconMeta = <String, dynamic>{'type': data.iconType.name};
+      if (data.iconCode != null) iconMeta['code'] = data.iconCode;
+      if (data.iconImageBase64 != null) iconMeta['image'] = data.iconImageBase64;
+      if (data.iconUrl != null) iconMeta['url'] = data.iconUrl;
+      entry.setString(_iconMetaKey, PlainValue(jsonEncode(iconMeta)));
+    } else {
+      entry.setString(_iconMetaKey, PlainValue(''));
+    }
   }
 
   static Credentials _buildCredentials(String password, Uint8List? keyFileBytes) {

@@ -10,6 +10,8 @@ import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/generator/providers/generator_provider.dart';
 import 'package:k_passwort/features/generator/domain/password_generator.dart';
 import 'package:k_passwort/features/onboarding/presentation/widgets/password_strength_indicator.dart';
+import 'package:k_passwort/features/vault/presentation/widgets/entry_icon_picker_sheet.dart';
+import 'package:k_passwort/features/vault/presentation/widgets/entry_icon_preview.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
@@ -103,6 +105,11 @@ class _State extends ConsumerState<EntryEditScreen> {
   final List<Tag> _tags = [];
   VaultEntry? _original;
 
+  EntryIconType _iconType = EntryIconType.auto;
+  int? _iconCode;
+  String? _iconImageBase64;
+  String? _iconUrl;
+
   @override
   void initState() {
     super.initState();
@@ -123,6 +130,10 @@ class _State extends ConsumerState<EntryEditScreen> {
     _notesCtrl.text = e.notes;
     _type = e.type;
     _groupId = e.groupId;
+    _iconType = e.iconType;
+    _iconCode = e.iconCode;
+    _iconImageBase64 = e.iconImageBase64;
+    _iconUrl = e.iconUrl;
     _attachments = List.from(e.attachments);
     _tags.addAll(e.tags);
     for (final cf in e.customFields) {
@@ -513,6 +524,10 @@ class _State extends ConsumerState<EntryEditScreen> {
           groupId: _groupId,
           createdAt: now,
           updatedAt: now,
+          iconType: _iconType,
+          iconCode: _iconCode,
+          iconImageBase64: _iconImageBase64,
+          iconUrl: _iconUrl,
         );
         await repo.addEntry(entry);
       } else {
@@ -530,6 +545,10 @@ class _State extends ConsumerState<EntryEditScreen> {
             tags: _tags,
             groupId: _groupId,
             updatedAt: now,
+            iconType: _iconType,
+            iconCode: _iconCode,
+            iconImageBase64: _iconImageBase64,
+            iconUrl: _iconUrl,
           );
           await repo.updateEntry(updated);
         }
@@ -628,6 +647,35 @@ class _State extends ConsumerState<EntryEditScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Center(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final result = await showEntryIconPickerSheet(
+                          context,
+                          urlHint: _urlCtrl.text,
+                        );
+                        if (result != null) {
+                          setState(() {
+                            _iconType = result.type;
+                            _iconCode = result.iconCode;
+                            _iconImageBase64 = result.imageBase64;
+                            _iconUrl = result.url;
+                          });
+                        }
+                      },
+                      child: EntryIconPreview(
+                        iconType: _iconType,
+                        iconCode: _iconCode,
+                        iconImageBase64: _iconImageBase64,
+                        webIconUrl: _iconUrl,
+                        entryUrl: _urlCtrl.text,
+                        entryType: _type,
+                        size: 64,
+                      ),
+                    ),
+                  ).animate(delay: 40.ms).fadeIn(),
+                  const SizedBox(height: 16),
+
                   // Label dropdown — always visible
                   DropdownButtonFormField<String?>(
                     value: validGroupId,

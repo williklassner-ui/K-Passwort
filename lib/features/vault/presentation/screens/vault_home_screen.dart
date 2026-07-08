@@ -176,6 +176,10 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   bool _searching = false;
   bool _savingGroup = false;
   final _searchController = TextEditingController();
+  // Tracks which entries have already run their entrance animation once, so
+  // scrolling a tile back into view doesn't re-trigger fade/slide (was
+  // causing scroll jank — a new AnimationController per rebuilt tile).
+  final Set<String> _animatedEntryIds = {};
 
   @override
   void dispose() {
@@ -462,6 +466,9 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
       body: entries.isEmpty && !hasFilters
           ? _EmptyState(isSearching: _searching)
           : CustomScrollView(
+              // Pre-builds tiles slightly beyond the viewport so fast
+              // flings don't hit un-built tiles mid-scroll.
+              cacheExtent: 800,
               slivers: [
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
 
@@ -548,11 +555,14 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 0),
                       itemBuilder: (context, index) {
                         final entry = entries[index];
+                        final isFirstAppearance = _animatedEntryIds.add(entry.id);
                         return EntryCard(
+                          key: ValueKey(entry.id),
                           entry: entry,
                           index: index,
                           selectionMode: selectionMode,
                           selected: selectedIds.contains(entry.id),
+                          animate: isFirstAppearance,
                         );
                       },
                     ),

@@ -84,6 +84,15 @@ final tagFilteredEntriesProvider = Provider<List<VaultEntry>>((ref) {
   return entries.where((e) => e.tags.any((t) => selectedTags.contains(t.name))).toList();
 });
 
+final favoritesOnlyProvider = StateProvider<bool>((ref) => false);
+
+final favoritesFilteredEntriesProvider = Provider<List<VaultEntry>>((ref) {
+  final entries = ref.watch(tagFilteredEntriesProvider);
+  final favoritesOnly = ref.watch(favoritesOnlyProvider);
+  if (!favoritesOnly) return entries;
+  return entries.where((e) => e.isFavorite).toList();
+});
+
 final allTagsProvider = Provider<List<Tag>>((ref) {
   ref.watch(vaultRevisionProvider);
   final entries = ref.watch(entriesProvider);

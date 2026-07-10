@@ -392,16 +392,17 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final entries = ref.watch(tagFilteredEntriesProvider);
+    final entries = ref.watch(favoritesFilteredEntriesProvider);
     final allTags = ref.watch(allTagsProvider);
     final selectedTags = ref.watch(selectedTagsProvider);
     final groups = ref.watch(groupsProvider);
     final selectedGroup = ref.watch(selectedGroupProvider);
+    final favoritesOnly = ref.watch(favoritesOnlyProvider);
     final selectionMode = ref.watch(selectionModeProvider);
     final selectedIds = ref.watch(selectedEntryIdsProvider);
     final vaultName = ref.watch(currentVaultNameProvider);
 
-    final hasFilters = allTags.isNotEmpty || groups.isNotEmpty;
+    final hasFilters = allTags.isNotEmpty || groups.isNotEmpty || favoritesOnly;
 
     return Stack(
       children: [
@@ -496,6 +497,24 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
               cacheExtent: 800,
               slivers: [
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
+
+                // Favorites filter chip (always visible)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: FilterChip(
+                      avatar: Icon(
+                        favoritesOnly ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: KPasswortColors.warning,
+                        size: 16,
+                      ),
+                      label: const Text('Favoriten'),
+                      selected: favoritesOnly,
+                      onSelected: (v) =>
+                          ref.read(favoritesOnlyProvider.notifier).state = v,
+                    ),
+                  ),
+                ),
 
                 // Group filter chips
                 if (groups.isNotEmpty)

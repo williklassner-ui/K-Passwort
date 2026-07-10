@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/core/utils/vault_open_flow.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
+import 'package:k_passwort/features/vault/presentation/widgets/color_picker_row.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_card.dart';
+import 'package:k_passwort/features/vault/providers/color_providers.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
@@ -189,35 +191,57 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
 
   Future<void> _showNewGroupDialog() async {
     final nameCtrl = TextEditingController();
+    int colorValue = 0;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Neue Gruppe'),
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: 'Name'),
-          autofocus: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Neue Gruppe'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                ColorPickerRow(
+                  selectedColor: colorValue,
+                  onColorSelected: (c) => setDlgState(() => colorValue = c),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Abbrechen'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Erstellen'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Abbrechen'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Erstellen'),
-          ),
-        ],
       ),
     );
     if (confirmed == true && nameCtrl.text.isNotEmpty && mounted) {
       setState(() => _savingGroup = true);
       final repo = ref.read(vaultRepositoryProvider);
-      await repo.addGroup(VaultGroup(
-        id: const Uuid().v4(),
-        name: nameCtrl.text,
-      ));
+      final trimmedName = nameCtrl.text.trim();
+      await repo.addGroup(VaultGroup(id: const Uuid().v4(), name: trimmedName));
       ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
+      if (colorValue != 0) {
+        final newGroup = repo.groups.lastWhere(
+          (g) => g.name == trimmedName,
+          orElse: () => VaultGroup(id: '', name: ''),
+        );
+        if (newGroup.id.isNotEmpty) {
+          await ref.read(groupColorsProvider.notifier).setColor(newGroup.id, colorValue);
+        }
+      }
       if (mounted) setState(() => _savingGroup = false);
     }
   }
@@ -376,6 +400,8 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
     final selectionMode = ref.watch(selectionModeProvider);
     final selectedIds = ref.watch(selectedEntryIdsProvider);
     final vaultName = ref.watch(currentVaultNameProvider);
+    final tagColors = ref.watch(tagColorsProvider);
+    final groupColors = ref.watch(groupColorsProvider);
 
     final hasFilters = allTags.isNotEmpty || groups.isNotEmpty;
 
@@ -489,17 +515,26 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                                   ref.read(selectedGroupProvider.notifier).state = null,
                             ),
                           ),
-                          ...groups.map((g) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: FilterChip(
-                                  label: Text(g.name),
-                                  selected: selectedGroup == g.id,
-                                  onSelected: (_) {
-                                    ref.read(selectedGroupProvider.notifier).state =
-                                        selectedGroup == g.id ? null : g.id;
-                                  },
-                                ),
-                              )),
+                          ...groups.map((g) {
+                                final groupColor = groupColors[g.id] ?? 0;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: FilterChip(
+                                    avatar: groupColor != 0
+                                        ? CircleAvatar(
+                                            backgroundColor: Color(groupColor),
+                                            radius: 6,
+                                          )
+                                        : null,
+                                    label: Text(g.name),
+                                    selected: selectedGroup == g.id,
+                                    onSelected: (_) {
+                                      ref.read(selectedGroupProvider.notifier).state =
+                                          selectedGroup == g.id ? null : g.id;
+                                    },
+                                  ),
+                                );
+                              }),
                         ],
                       ),
                     ),
@@ -514,6 +549,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                       child: Row(
                         children: allTags.map((tag) {
                           final isSelected = selectedTags.contains(tag.name);
+                          final tagColor = tagColors[tag.name] ?? 0;
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: FilterChip(
@@ -522,7 +558,12 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                                       IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
                                       size: 14,
                                     )
-                                  : null,
+                                  : (tagColor != 0
+                                      ? CircleAvatar(
+                                          backgroundColor: Color(tagColor),
+                                          radius: 6,
+                                        )
+                                      : null),
                               label: Text(tag.name),
                               selected: isSelected,
                               onSelected: (v) {

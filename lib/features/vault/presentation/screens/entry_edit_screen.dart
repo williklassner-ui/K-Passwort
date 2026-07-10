@@ -12,6 +12,8 @@ import 'package:k_passwort/features/generator/domain/password_generator.dart';
 import 'package:k_passwort/features/onboarding/presentation/widgets/password_strength_indicator.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_icon_picker_sheet.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_icon_preview.dart';
+import 'package:k_passwort/features/vault/presentation/widgets/color_picker_row.dart';
+import 'package:k_passwort/features/vault/providers/color_providers.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
@@ -271,8 +273,10 @@ class _State extends ConsumerState<EntryEditScreen> {
   Future<void> _editTag(int index) async {
     final accent = Theme.of(context).colorScheme.primary;
     final current = _tags[index];
+    final oldName = current.name;
     String name = current.name;
     int iconCode = current.iconCode;
+    int colorValue = ref.read(tagColorsProvider)[current.name] ?? 0;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -311,6 +315,11 @@ class _State extends ConsumerState<EntryEditScreen> {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 16),
+                ColorPickerRow(
+                  selectedColor: colorValue,
+                  onColorSelected: (c) => setDlgState(() => colorValue = c),
+                ),
               ],
             ),
           ),
@@ -328,6 +337,10 @@ class _State extends ConsumerState<EntryEditScreen> {
       ),
     );
     if (confirmed == true && name.isNotEmpty) {
+      if (oldName != name) {
+        await ref.read(tagColorsProvider.notifier).setColor(oldName, 0);
+      }
+      await ref.read(tagColorsProvider.notifier).setColor(name, colorValue);
       setState(() => _tags[index] = Tag(name: name, iconCode: iconCode));
     }
   }
@@ -379,6 +392,7 @@ class _State extends ConsumerState<EntryEditScreen> {
     final accent = Theme.of(context).colorScheme.primary;
     String name = '';
     int iconCode = AppIcons.tagIcons.first.codePoint;
+    int colorValue = 0;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -418,6 +432,11 @@ class _State extends ConsumerState<EntryEditScreen> {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 16),
+                ColorPickerRow(
+                  selectedColor: colorValue,
+                  onColorSelected: (c) => setDlgState(() => colorValue = c),
+                ),
               ],
             ),
           ),
@@ -435,6 +454,7 @@ class _State extends ConsumerState<EntryEditScreen> {
       ),
     );
     if (confirmed == true && name.isNotEmpty) {
+      await ref.read(tagColorsProvider.notifier).setColor(name, colorValue);
       setState(() => _tags.add(Tag(name: name, iconCode: iconCode)));
     }
   }

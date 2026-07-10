@@ -10,8 +10,10 @@ import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/generator/providers/generator_provider.dart';
 import 'package:k_passwort/features/generator/domain/password_generator.dart';
 import 'package:k_passwort/features/onboarding/presentation/widgets/password_strength_indicator.dart';
+import 'package:k_passwort/features/vault/presentation/widgets/color_picker_row.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_icon_picker_sheet.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_icon_preview.dart';
+import 'package:k_passwort/features/vault/providers/color_providers.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
@@ -273,6 +275,7 @@ class _State extends ConsumerState<EntryEditScreen> {
     final current = _tags[index];
     String name = current.name;
     int iconCode = current.iconCode;
+    int colorValue = ref.read(tagColorsProvider)[current.name] ?? 0;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -311,6 +314,11 @@ class _State extends ConsumerState<EntryEditScreen> {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 8),
+                ColorPickerRow(
+                  selected: colorValue,
+                  onChanged: (c) => setDlgState(() => colorValue = c),
+                ),
               ],
             ),
           ),
@@ -328,6 +336,10 @@ class _State extends ConsumerState<EntryEditScreen> {
       ),
     );
     if (confirmed == true && name.isNotEmpty) {
+      if (name != current.name) {
+        await ref.read(tagColorsProvider.notifier).setColor(current.name, 0);
+      }
+      await ref.read(tagColorsProvider.notifier).setColor(name, colorValue);
       setState(() => _tags[index] = Tag(name: name, iconCode: iconCode));
     }
   }
@@ -379,6 +391,7 @@ class _State extends ConsumerState<EntryEditScreen> {
     final accent = Theme.of(context).colorScheme.primary;
     String name = '';
     int iconCode = AppIcons.tagIcons.first.codePoint;
+    int colorValue = 0;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -418,6 +431,11 @@ class _State extends ConsumerState<EntryEditScreen> {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 8),
+                ColorPickerRow(
+                  selected: colorValue,
+                  onChanged: (c) => setDlgState(() => colorValue = c),
+                ),
               ],
             ),
           ),
@@ -435,6 +453,9 @@ class _State extends ConsumerState<EntryEditScreen> {
       ),
     );
     if (confirmed == true && name.isNotEmpty) {
+      if (colorValue != 0) {
+        await ref.read(tagColorsProvider.notifier).setColor(name, colorValue);
+      }
       setState(() => _tags.add(Tag(name: name, iconCode: iconCode)));
     }
   }
@@ -574,6 +595,7 @@ class _State extends ConsumerState<EntryEditScreen> {
   Widget build(BuildContext context) {
     final isNew = widget.entryId == null;
     final groups = ref.watch(groupsProvider);
+    final tagColors = ref.watch(tagColorsProvider);
     final accent = Theme.of(context).colorScheme.primary;
     final validGroupId = groups.any((g) => g.id == _groupId) ? _groupId : null;
     // AppBar is taller than kToolbarHeight because of the icon-button row
@@ -752,19 +774,26 @@ class _State extends ConsumerState<EntryEditScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  ..._tags.asMap().entries.map((e) => InputChip(
-                        avatar: e.value.iconCode != 0
-                            ? Icon(
-                                IconData(e.value.iconCode,
-                                    fontFamily: 'MaterialIcons'),
-                                size: 14,
-                              )
-                            : null,
-                        label: Text(e.value.name),
-                        onPressed: () => _editTag(e.key),
-                        onDeleted: () =>
-                            setState(() => _tags.removeAt(e.key)),
-                      )),
+                  ..._tags.asMap().entries.map((e) {
+                        final tagColor = tagColors[e.value.name] ?? 0;
+                        return InputChip(
+                          avatar: tagColor != 0
+                              ? CircleAvatar(
+                                  backgroundColor: Color(tagColor),
+                                  radius: 6,
+                                )
+                              : e.value.iconCode != 0
+                                  ? Icon(
+                                      IconData(e.value.iconCode,
+                                          fontFamily: 'MaterialIcons'),
+                                      size: 14,
+                                    )
+                                  : null,
+                          label: Text(e.value.name),
+                          onPressed: () => _editTag(e.key),
+                          onDeleted: () => setState(() => _tags.removeAt(e.key)),
+                        );
+                      }),
                   ActionChip(
                     avatar: const Icon(Icons.add_rounded, size: 14),
                     label: const Text('Neuer Tag erstellen'),

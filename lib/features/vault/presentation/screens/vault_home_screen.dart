@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/core/utils/vault_open_flow.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
+import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/color_picker_row.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_card.dart';
 import 'package:k_passwort/features/vault/providers/color_providers.dart';
@@ -17,12 +18,35 @@ import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
 import 'package:k_passwort/ui/widgets/saving_overlay.dart';
 import 'package:uuid/uuid.dart';
 
-class VaultShell extends ConsumerWidget {
+class VaultShell extends ConsumerStatefulWidget {
   const VaultShell({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VaultShell> createState() => _VaultShellState();
+}
+
+class _VaultShellState extends ConsumerState<VaultShell> {
+  @override
+  void initState() {
+    super.initState();
+    _refreshVaultName();
+  }
+
+  Future<void> _refreshVaultName() async {
+    final uri = ref.read(currentVaultUriProvider);
+    if (uri == null) return;
+    try {
+      final info = await SafStorage.getFileInfo(uri);
+      final name = info?['name'] as String?;
+      if (name != null && name.isNotEmpty) {
+        await ref.read(vaultListProvider.notifier).updateName(uri, name);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
 
     int selectedIndex = 0;
@@ -131,7 +155,7 @@ class VaultShell extends ConsumerWidget {
         return true;
       },
       child: Scaffold(
-        body: child,
+        body: widget.child,
         bottomNavigationBar: NavigationBar(
           selectedIndex: selectedIndex,
           onDestinationSelected: (i) {
@@ -197,22 +221,20 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
           title: const Text('Neue Gruppe'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 16),
-                ColorPickerRow(
-                  selectedColor: colorValue,
-                  onColorSelected: (c) => setDlgState(() => colorValue = c),
-                ),
-              ],
-            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Name'),
+                autofocus: true,
+              ),
+              const SizedBox(height: 8),
+              ColorPickerRow(
+                selected: colorValue,
+                onChanged: (c) => setDlgState(() => colorValue = c),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -230,18 +252,12 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
     if (confirmed == true && nameCtrl.text.isNotEmpty && mounted) {
       setState(() => _savingGroup = true);
       final repo = ref.read(vaultRepositoryProvider);
-      final trimmedName = nameCtrl.text.trim();
-      await repo.addGroup(VaultGroup(id: const Uuid().v4(), name: trimmedName));
-      ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
+      final groupId = const Uuid().v4();
+      await repo.addGroup(VaultGroup(id: groupId, name: nameCtrl.text));
       if (colorValue != 0) {
-        final newGroup = repo.groups.lastWhere(
-          (g) => g.name == trimmedName,
-          orElse: () => VaultGroup(id: '', name: ''),
-        );
-        if (newGroup.id.isNotEmpty) {
-          await ref.read(groupColorsProvider.notifier).setColor(newGroup.id, colorValue);
-        }
+        await ref.read(groupColorsProvider.notifier).setColor(groupId, colorValue);
       }
+      ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);
       if (mounted) setState(() => _savingGroup = false);
     }
   }
@@ -392,18 +408,19 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final entries = ref.watch(tagFilteredEntriesProvider);
+    final entries = ref.watch(favoritesFilteredEntriesProvider);
     final allTags = ref.watch(allTagsProvider);
     final selectedTags = ref.watch(selectedTagsProvider);
     final groups = ref.watch(groupsProvider);
     final selectedGroup = ref.watch(selectedGroupProvider);
+    final favoritesOnly = ref.watch(favoritesOnlyProvider);
     final selectionMode = ref.watch(selectionModeProvider);
     final selectedIds = ref.watch(selectedEntryIdsProvider);
     final vaultName = ref.watch(currentVaultNameProvider);
     final tagColors = ref.watch(tagColorsProvider);
     final groupColors = ref.watch(groupColorsProvider);
 
-    final hasFilters = allTags.isNotEmpty || groups.isNotEmpty;
+    final hasFilters = allTags.isNotEmpty || groups.isNotEmpty || favoritesOnly;
 
     return Stack(
       children: [
@@ -473,6 +490,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                   icon: const Icon(Icons.sort_rounded),
                   onPressed: () => showModalBottomSheet(
                     context: context,
+                    isScrollControlled: true,
                     builder: (ctx) => const _SortSheet(),
                   ),
                 ),
@@ -498,43 +516,56 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
               slivers: [
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
 
+                // Favorites filter chip (always visible)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: FilterChip(
+                      avatar: Icon(
+                        favoritesOnly ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: KPasswortColors.warning,
+                        size: 16,
+                      ),
+                      label: const Text('Favoriten'),
+                      selected: favoritesOnly,
+                      onSelected: (v) =>
+                          ref.read(favoritesOnlyProvider.notifier).state = v,
+                    ),
+                  ),
+                ),
+
                 // Group filter chips
                 if (groups.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: Row(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              label: const Text('Alle'),
-                              selected: selectedGroup == null,
-                              onSelected: (_) =>
-                                  ref.read(selectedGroupProvider.notifier).state = null,
-                            ),
+                          FilterChip(
+                            label: const Text('Alle'),
+                            selected: selectedGroup == null,
+                            onSelected: (_) =>
+                                ref.read(selectedGroupProvider.notifier).state = null,
                           ),
                           ...groups.map((g) {
-                                final groupColor = groupColors[g.id] ?? 0;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: FilterChip(
-                                    avatar: groupColor != 0
-                                        ? CircleAvatar(
-                                            backgroundColor: Color(groupColor),
-                                            radius: 6,
-                                          )
-                                        : null,
-                                    label: Text(g.name),
-                                    selected: selectedGroup == g.id,
-                                    onSelected: (_) {
-                                      ref.read(selectedGroupProvider.notifier).state =
-                                          selectedGroup == g.id ? null : g.id;
-                                    },
-                                  ),
-                                );
-                              }),
+                            final groupColor = groupColors[g.id] ?? 0;
+                            return FilterChip(
+                              avatar: groupColor != 0
+                                  ? CircleAvatar(
+                                      backgroundColor: Color(groupColor),
+                                      radius: 6,
+                                    )
+                                  : null,
+                              label: Text(g.name),
+                              selected: selectedGroup == g.id,
+                              onSelected: (_) {
+                                ref.read(selectedGroupProvider.notifier).state =
+                                    selectedGroup == g.id ? null : g.id;
+                              },
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -543,41 +574,39 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                 // Tag filter chips
                 if (allTags.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: Row(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
                         children: allTags.map((tag) {
                           final isSelected = selectedTags.contains(tag.name);
                           final tagColor = tagColors[tag.name] ?? 0;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              avatar: tag.iconCode != 0
-                                  ? Icon(
-                                      IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
-                                      size: 14,
-                                    )
-                                  : (tagColor != 0
-                                      ? CircleAvatar(
-                                          backgroundColor: Color(tagColor),
-                                          radius: 6,
-                                        )
-                                      : null),
-                              label: Text(tag.name),
-                              selected: isSelected,
-                              onSelected: (v) {
-                                final notifier = ref.read(selectedTagsProvider.notifier);
-                                final current =
-                                    Set<String>.from(ref.read(selectedTagsProvider));
-                                if (v) {
-                                  current.add(tag.name);
-                                } else {
-                                  current.remove(tag.name);
-                                }
-                                notifier.state = current;
-                              },
-                            ),
+                          return FilterChip(
+                            avatar: tagColor != 0
+                                ? CircleAvatar(
+                                    backgroundColor: Color(tagColor),
+                                    radius: 6,
+                                  )
+                                : tag.iconCode != 0
+                                    ? Icon(
+                                        IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
+                                        size: 14,
+                                      )
+                                    : null,
+                            label: Text(tag.name),
+                            selected: isSelected,
+                            onSelected: (v) {
+                              final notifier = ref.read(selectedTagsProvider.notifier);
+                              final current =
+                                  Set<String>.from(ref.read(selectedTagsProvider));
+                              if (v) {
+                                current.add(tag.name);
+                              } else {
+                                current.remove(tag.name);
+                              }
+                              notifier.state = current;
+                            },
                           );
                         }).toList(),
                       ),
@@ -590,7 +619,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     sliver: SliverList.separated(
                       itemCount: entries.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 0),
@@ -634,27 +663,29 @@ class _SortSheet extends ConsumerWidget {
       (SortOrder.bySize, 'Nach Größe'),
     ];
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Sortierung',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Sortierung',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
-          ),
-          ...options.map((opt) => RadioListTile<SortOrder>(
-                title: Text(opt.$2),
-                value: opt.$1,
-                groupValue: current,
-                onChanged: (v) {
-                  ref.read(sortOrderProvider.notifier).state = v!;
-                  Navigator.pop(context);
-                },
-              )),
-          const SizedBox(height: 8),
-        ],
+            ...options.map((opt) => RadioListTile<SortOrder>(
+                  title: Text(opt.$2),
+                  value: opt.$1,
+                  groupValue: current,
+                  onChanged: (v) {
+                    ref.read(sortOrderProvider.notifier).state = v!;
+                    Navigator.pop(context);
+                  },
+                )),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

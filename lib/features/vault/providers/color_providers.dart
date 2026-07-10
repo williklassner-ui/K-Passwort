@@ -24,12 +24,11 @@ class TagColorsNotifier extends Notifier<Map<String, int>> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null) return;
-    try {
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
-      state = decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
-    } catch (_) {}
+    final json = prefs.getString(_key);
+    if (json == null) return;
+    final map = (jsonDecode(json) as Map<String, dynamic>)
+        .map((k, v) => MapEntry(k, v as int));
+    state = map;
   }
 
   Future<void> _save() async {
@@ -60,12 +59,11 @@ class GroupColorsNotifier extends Notifier<Map<String, int>> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null) return;
-    try {
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
-      state = decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
-    } catch (_) {}
+    final json = prefs.getString(_key);
+    if (json == null) return;
+    final map = (jsonDecode(json) as Map<String, dynamic>)
+        .map((k, v) => MapEntry(k, v as int));
+    state = map;
   }
 
   Future<void> _save() async {
@@ -89,4 +87,5 @@ final tagColorsProvider =
     NotifierProvider<TagColorsNotifier, Map<String, int>>(TagColorsNotifier.new);
 
 final groupColorsProvider =
-    NotifierProvider<GroupColorsNotifier, Map<String, int>>(GroupColorsNotifier.new);
+    NotifierProvider<GroupColorsNotifier, Map<String, int>>(
+        GroupColorsNotifier.new);

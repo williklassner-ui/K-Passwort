@@ -4,19 +4,19 @@ import 'package:k_passwort/features/vault/providers/color_providers.dart';
 class ColorPickerRow extends StatelessWidget {
   const ColorPickerRow({
     super.key,
-    required this.selectedColor,
-    required this.onColorSelected,
+    required this.selected,
+    required this.onChanged,
   });
 
-  final int selectedColor;
-  final ValueChanged<int> onColorSelected;
+  final int selected;
+  final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+      spacing: 6,
+      runSpacing: 6,
       children: [
         _swatch(
           context,
@@ -24,32 +24,36 @@ class ColorPickerRow extends StatelessWidget {
           primary: primary,
           child: Icon(Icons.block_rounded, size: 14, color: Colors.grey.shade400),
         ),
-        ...kPresetColors.map(
-          (c) => _swatch(context, color: c, primary: primary),
-        ),
+        ...kPresetColors.map((c) => _swatch(context, color: c, primary: primary)),
       ],
     );
   }
 
-  Widget _swatch(BuildContext context, {required int color, required Color primary, Widget? child}) {
-    final isSelected = selectedColor == color;
+  Widget _swatch(
+    BuildContext context, {
+    required int color,
+    required Color primary,
+    Widget? child,
+  }) {
+    final isSelected = selected == color;
     return GestureDetector(
-      onTap: () => onColorSelected(color),
+      onTap: () => onChanged(color),
       child: Container(
         width: 28,
         height: 28,
         decoration: BoxDecoration(
-          color: color == 0 ? null : Color(color),
           shape: BoxShape.circle,
+          color: color == 0
+              ? Theme.of(context).colorScheme.surfaceVariant
+              : Color(color),
           border: Border.all(
-            color: isSelected ? primary : (color == 0 ? Colors.grey.shade400 : Colors.transparent),
-            width: isSelected ? 2.5 : 1,
+            color: isSelected ? primary : Colors.transparent,
+            width: 2,
           ),
         ),
-        child: child ??
-            (isSelected
-                ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-                : null),
+        child: isSelected && child == null
+            ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+            : child,
       ),
     );
   }

@@ -80,7 +80,7 @@ class EntryCard extends ConsumerWidget {
                   Navigator.pop(sheetCtx);
                   final uri = Uri.tryParse(entry.url);
                   if (uri != null) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
                   }
                 },
               ),

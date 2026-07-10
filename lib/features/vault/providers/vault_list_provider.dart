@@ -65,6 +65,13 @@ class VaultListNotifier extends Notifier<List<VaultDescriptor>> {
     await _save();
   }
 
+  Future<void> updateName(String uri, String name) async {
+    state = state.map((v) => v.uri == uri
+        ? VaultDescriptor(name: name, uri: v.uri, lastOpened: v.lastOpened)
+        : v).toList();
+    await _save();
+  }
+
   Future<void> setLastOpened(String uri) async {
     state = state.map((v) => v.uri == uri
         ? VaultDescriptor(name: v.name, uri: v.uri, lastOpened: DateTime.now())

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/core/utils/vault_open_flow.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
+import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/vault/presentation/widgets/entry_card.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
@@ -15,12 +16,35 @@ import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
 import 'package:k_passwort/ui/widgets/saving_overlay.dart';
 import 'package:uuid/uuid.dart';
 
-class VaultShell extends ConsumerWidget {
+class VaultShell extends ConsumerStatefulWidget {
   const VaultShell({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VaultShell> createState() => _VaultShellState();
+}
+
+class _VaultShellState extends ConsumerState<VaultShell> {
+  @override
+  void initState() {
+    super.initState();
+    _refreshVaultName();
+  }
+
+  Future<void> _refreshVaultName() async {
+    final uri = ref.read(currentVaultUriProvider);
+    if (uri == null) return;
+    try {
+      final info = await SafStorage.getFileInfo(uri);
+      final name = info?['name'] as String?;
+      if (name != null && name.isNotEmpty) {
+        await ref.read(vaultListProvider.notifier).updateName(uri, name);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
 
     int selectedIndex = 0;
@@ -129,7 +153,7 @@ class VaultShell extends ConsumerWidget {
         return true;
       },
       child: Scaffold(
-        body: child,
+        body: widget.child,
         bottomNavigationBar: NavigationBar(
           selectedIndex: selectedIndex,
           onDestinationSelected: (i) {

@@ -87,7 +87,7 @@ class _State extends ConsumerState<EntryDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => context.go('/vault/entry/${Uri.encodeComponent(entry.id)}/edit'),
+            onPressed: () => context.push('/vault/entry/${Uri.encodeComponent(entry.id)}/edit'),
           ),
           IconButton(
             icon: Icon(

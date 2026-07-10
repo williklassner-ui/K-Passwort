@@ -103,7 +103,7 @@ class EntryCard extends ConsumerWidget {
               title: const Text('Bearbeiten'),
               onTap: () {
                 Navigator.pop(sheetCtx);
-                context.go('/vault/entry/${Uri.encodeComponent(entry.id)}/edit');
+                context.push('/vault/entry/${Uri.encodeComponent(entry.id)}/edit');
               },
             ),
             ListTile(
@@ -155,7 +155,7 @@ class EntryCard extends ConsumerWidget {
           if (selectionMode) {
             _toggleSelection(ref);
           } else {
-            context.go('/vault/entry/${Uri.encodeComponent(entry.id)}');
+            context.push('/vault/entry/${Uri.encodeComponent(entry.id)}');
           }
         },
         onLongPress: () {

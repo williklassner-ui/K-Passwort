@@ -447,6 +447,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                   icon: const Icon(Icons.sort_rounded),
                   onPressed: () => showModalBottomSheet(
                     context: context,
+                    isScrollControlled: true,
                     builder: (ctx) => const _SortSheet(),
                   ),
                 ),
@@ -475,30 +476,25 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                 // Group filter chips
                 if (groups.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: Row(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              label: const Text('Alle'),
-                              selected: selectedGroup == null,
-                              onSelected: (_) =>
-                                  ref.read(selectedGroupProvider.notifier).state = null,
-                            ),
+                          FilterChip(
+                            label: const Text('Alle'),
+                            selected: selectedGroup == null,
+                            onSelected: (_) =>
+                                ref.read(selectedGroupProvider.notifier).state = null,
                           ),
-                          ...groups.map((g) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: FilterChip(
-                                  label: Text(g.name),
-                                  selected: selectedGroup == g.id,
-                                  onSelected: (_) {
-                                    ref.read(selectedGroupProvider.notifier).state =
-                                        selectedGroup == g.id ? null : g.id;
-                                  },
-                                ),
+                          ...groups.map((g) => FilterChip(
+                                label: Text(g.name),
+                                selected: selectedGroup == g.id,
+                                onSelected: (_) {
+                                  ref.read(selectedGroupProvider.notifier).state =
+                                      selectedGroup == g.id ? null : g.id;
+                                },
                               )),
                         ],
                       ),
@@ -508,35 +504,33 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                 // Tag filter chips
                 if (allTags.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: Row(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
                         children: allTags.map((tag) {
                           final isSelected = selectedTags.contains(tag.name);
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              avatar: tag.iconCode != 0
-                                  ? Icon(
-                                      IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
-                                      size: 14,
-                                    )
-                                  : null,
-                              label: Text(tag.name),
-                              selected: isSelected,
-                              onSelected: (v) {
-                                final notifier = ref.read(selectedTagsProvider.notifier);
-                                final current =
-                                    Set<String>.from(ref.read(selectedTagsProvider));
-                                if (v) {
-                                  current.add(tag.name);
-                                } else {
-                                  current.remove(tag.name);
-                                }
-                                notifier.state = current;
-                              },
-                            ),
+                          return FilterChip(
+                            avatar: tag.iconCode != 0
+                                ? Icon(
+                                    IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
+                                    size: 14,
+                                  )
+                                : null,
+                            label: Text(tag.name),
+                            selected: isSelected,
+                            onSelected: (v) {
+                              final notifier = ref.read(selectedTagsProvider.notifier);
+                              final current =
+                                  Set<String>.from(ref.read(selectedTagsProvider));
+                              if (v) {
+                                current.add(tag.name);
+                              } else {
+                                current.remove(tag.name);
+                              }
+                              notifier.state = current;
+                            },
                           );
                         }).toList(),
                       ),
@@ -549,7 +543,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     sliver: SliverList.separated(
                       itemCount: entries.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 0),
@@ -593,27 +587,29 @@ class _SortSheet extends ConsumerWidget {
       (SortOrder.bySize, 'Nach Größe'),
     ];
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Sortierung',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Sortierung',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
-          ),
-          ...options.map((opt) => RadioListTile<SortOrder>(
-                title: Text(opt.$2),
-                value: opt.$1,
-                groupValue: current,
-                onChanged: (v) {
-                  ref.read(sortOrderProvider.notifier).state = v!;
-                  Navigator.pop(context);
-                },
-              )),
-          const SizedBox(height: 8),
-        ],
+            ...options.map((opt) => RadioListTile<SortOrder>(
+                  title: Text(opt.$2),
+                  value: opt.$1,
+                  groupValue: current,
+                  onChanged: (v) {
+                    ref.read(sortOrderProvider.notifier).state = v!;
+                    Navigator.pop(context);
+                  },
+                )),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

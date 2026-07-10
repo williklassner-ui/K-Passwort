@@ -148,6 +148,7 @@ class EntryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final card = Card(
+      margin: EdgeInsets.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
@@ -188,7 +189,7 @@ class EntryCard extends ConsumerWidget {
                     child: Text(
                       entry.title,
                       style: AppTypography.titleSmall,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

@@ -392,7 +392,10 @@ class _FieldRow extends StatelessWidget {
       child: ListTile(
         leading: Icon(icon, color: accent, size: 20),
         title: Text(label, style: AppTypography.labelSmall),
-        subtitle: Text(value, style: AppTypography.bodyMedium),
+        subtitle: Text(
+          value.isNotEmpty ? value : '—',
+          style: AppTypography.bodyMedium,
+        ),
         trailing: IconButton(
           icon: const Icon(Icons.copy_rounded, size: 18),
           color: KPasswortColors.onSurfaceVariant,

@@ -334,23 +334,21 @@ class KdbxVault {
       for (final key in cfKeysRaw.split('\n').where((s) => s.isNotEmpty)) {
         final kdbxKey = KdbxKey(key);
         final sv = e.getString(kdbxKey);
-        if (sv != null) {
-          final meta = cfMeta[key] as Map<String, dynamic>?;
-          final fieldType = meta != null
-              ? CustomFieldType.values
-                      .where((t) => t.name == meta['t'])
-                      .firstOrNull ??
-                  CustomFieldType.text
-              : CustomFieldType.text;
-          final iconCode = meta?['ic'] as int?;
-          customFields.add(CustomField(
-            key: key,
-            value: sv.getText() ?? '',
-            isProtected: sv is ProtectedValue,
-            type: fieldType,
-            iconCode: iconCode,
-          ));
-        }
+        final meta = cfMeta[key] as Map<String, dynamic>?;
+        final fieldType = meta != null
+            ? CustomFieldType.values
+                    .where((t) => t.name == meta['t'])
+                    .firstOrNull ??
+                CustomFieldType.text
+            : CustomFieldType.text;
+        final iconCode = meta?['ic'] as int?;
+        customFields.add(CustomField(
+          key: key,
+          value: sv?.getText() ?? '',
+          isProtected: sv is ProtectedValue,
+          type: fieldType,
+          iconCode: iconCode,
+        ));
       }
     }
 

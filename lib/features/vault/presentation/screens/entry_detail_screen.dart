@@ -6,6 +6,8 @@ import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/data/models/vault_entry.dart';
 import 'package:k_passwort/data/models/vault_group.dart';
 import 'package:k_passwort/data/storage/saf_storage.dart';
+import 'package:k_passwort/features/vault/presentation/widgets/entry_icon_preview.dart';
+import 'package:k_passwort/features/vault/providers/color_providers.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
@@ -69,6 +71,7 @@ class _State extends ConsumerState<EntryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final entry = ref.watch(entryByIdProvider(widget.entryId));
+    final tagColors = ref.watch(tagColorsProvider);
     final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight + 8;
 
     if (entry == null) {
@@ -112,6 +115,21 @@ class _State extends ConsumerState<EntryDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Entry icon
+            Center(
+              child: EntryIconPreview(
+                iconType: entry.iconType,
+                iconCode: entry.iconCode,
+                iconImageBase64: entry.iconImageBase64,
+                webIconUrl: entry.iconUrl,
+                entryUrl: entry.url,
+                entryType: entry.type,
+                size: 56,
+              ),
+            ).animate(delay: 40.ms).fadeIn(),
+
+            const SizedBox(height: 12),
+
             _TypeBadge(type: entry.type),
 
             const SizedBox(height: 12),
@@ -147,6 +165,34 @@ class _State extends ConsumerState<EntryDetailScreen> {
               );
             }),
 
+            // Tags
+            if (entry.tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: entry.tags.map((tag) {
+                  final tagColor = tagColors[tag.name] ?? 0;
+                  return Chip(
+                    avatar: tagColor != 0
+                        ? CircleAvatar(
+                            backgroundColor: Color(tagColor),
+                            radius: 6,
+                          )
+                        : tag.iconCode != 0
+                            ? Icon(
+                                IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
+                                size: 14,
+                              )
+                            : null,
+                    label: Text(tag.name, style: AppTypography.labelSmall),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ).animate(delay: 80.ms).fadeIn(),
+            ],
+
             const SizedBox(height: 12),
 
             if (entry.username.isNotEmpty)
@@ -165,6 +211,17 @@ class _State extends ConsumerState<EntryDetailScreen> {
                     setState(() => _passwordRevealed = !_passwordRevealed),
                 onCopy: () => _copySecure(entry.password, 'Passwort'),
               ).animate(delay: 150.ms).fadeIn().slideY(begin: 0.05),
+
+            if (entry.totpSecret != null && entry.totpSecret!.isNotEmpty)
+              _PasswordRow(
+                label: 'TOTP-Schlüssel',
+                password: entry.totpSecret!,
+                revealed: _revealedFields.contains('__totp__'),
+                onToggleReveal: () => setState(() => _revealedFields.contains('__totp__')
+                    ? _revealedFields.remove('__totp__')
+                    : _revealedFields.add('__totp__')),
+                onCopy: () => _copySecure(entry.totpSecret!, 'TOTP-Schlüssel'),
+              ).animate(delay: 170.ms).fadeIn().slideY(begin: 0.05),
 
             if (entry.url.isNotEmpty)
               _FieldRow(

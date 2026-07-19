@@ -332,8 +332,7 @@ class KdbxVault {
     final customFields = <CustomField>[];
     if (cfKeysRaw.isNotEmpty) {
       for (final key in cfKeysRaw.split('\n').where((s) => s.isNotEmpty)) {
-        final kdbxKey = KdbxKey(key);
-        final sv = e.getString(kdbxKey);
+        final sv = e.stringEntries.where((kv) => kv.key.key == key).firstOrNull?.value;
         final meta = cfMeta[key] as Map<String, dynamic>?;
         final fieldType = meta != null
             ? CustomFieldType.values

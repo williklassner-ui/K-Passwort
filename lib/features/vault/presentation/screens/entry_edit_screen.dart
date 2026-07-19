@@ -523,12 +523,22 @@ class _State extends ConsumerState<EntryEditScreen> {
     try {
       final repo = ref.read(vaultRepositoryProvider);
       final now = DateTime.now();
-      final customFields = _allRows
-          .whereType<_CustomFieldRow>()
-          .map((r) => r.cf)
-          .where((cf) => cf.keyCtrl.text.trim().isNotEmpty)
-          .map((cf) => cf.toField())
-          .toList();
+      var _autoFieldIdx = 1;
+      final customFields = <CustomField>[];
+      for (final row in _allRows.whereType<_CustomFieldRow>()) {
+        final cf = row.cf;
+        final key = cf.keyCtrl.text.trim();
+        final val = cf.valCtrl.text;
+        if (key.isEmpty && val.isEmpty) continue;
+        final effectiveKey = key.isNotEmpty ? key : 'Feld ${_autoFieldIdx++}';
+        customFields.add(CustomField(
+          key: effectiveKey,
+          value: val,
+          isProtected: cf.isProtected,
+          type: cf.type,
+          iconCode: cf.iconCode,
+        ));
+      }
 
       if (widget.entryId == null) {
         final entry = VaultEntry(

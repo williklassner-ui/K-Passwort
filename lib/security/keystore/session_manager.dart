@@ -74,8 +74,8 @@ class SessionNotifier extends Notifier<SessionState> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
     switch (lifecycleState) {
+      case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
         if (state == SessionState.unlocked) {
           if (_lockOnScreenOff) {
             lock();
@@ -87,7 +87,8 @@ class SessionNotifier extends Notifier<SessionState> with WidgetsBindingObserver
         cancelScheduledLock();
       case AppLifecycleState.detached:
         lock();
-      case AppLifecycleState.hidden:
+      case AppLifecycleState.inactive:
+        // Ignored: also fires for in-app overlays, dialogs and biometric prompts.
         break;
     }
   }

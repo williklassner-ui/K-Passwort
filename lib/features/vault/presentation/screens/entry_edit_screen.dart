@@ -523,12 +523,22 @@ class _State extends ConsumerState<EntryEditScreen> {
     try {
       final repo = ref.read(vaultRepositoryProvider);
       final now = DateTime.now();
-      final customFields = _allRows
-          .whereType<_CustomFieldRow>()
-          .map((r) => r.cf)
-          .where((cf) => cf.keyCtrl.text.trim().isNotEmpty)
-          .map((cf) => cf.toField())
-          .toList();
+      var _autoFieldIdx = 1;
+      final customFields = <CustomField>[];
+      for (final row in _allRows.whereType<_CustomFieldRow>()) {
+        final cf = row.cf;
+        final key = cf.keyCtrl.text.trim();
+        final val = cf.valCtrl.text;
+        if (key.isEmpty && val.isEmpty) continue;
+        final effectiveKey = key.isNotEmpty ? key : 'Feld ${_autoFieldIdx++}';
+        customFields.add(CustomField(
+          key: effectiveKey,
+          value: val,
+          isProtected: cf.isProtected,
+          type: cf.type,
+          iconCode: cf.iconCode,
+        ));
+      }
 
       if (widget.entryId == null) {
         final entry = VaultEntry(
@@ -553,26 +563,32 @@ class _State extends ConsumerState<EntryEditScreen> {
         await repo.addEntry(entry);
       } else {
         final existing = repo.findById(widget.entryId!);
-        if (existing != null) {
-          final updated = existing.copyWith(
-            title: _titleCtrl.text.trim(),
-            type: _type,
-            username: _userCtrl.text.trim(),
-            password: _passCtrl.text,
-            url: _urlCtrl.text.trim(),
-            notes: _notesCtrl.text.trim(),
-            customFields: customFields,
-            attachments: _attachments,
-            tags: _tags,
-            groupId: _groupId,
-            updatedAt: now,
-            iconType: _iconType,
-            iconCode: _iconCode,
-            iconImageBase64: _iconImageBase64,
-            iconUrl: _iconUrl,
-          );
-          await repo.updateEntry(updated);
+        if (existing == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Fehler: Eintrag nicht gefunden')),
+            );
+          }
+          return;
         }
+        final updated = existing.copyWith(
+          title: _titleCtrl.text.trim(),
+          type: _type,
+          username: _userCtrl.text.trim(),
+          password: _passCtrl.text,
+          url: _urlCtrl.text.trim(),
+          notes: _notesCtrl.text.trim(),
+          customFields: customFields,
+          attachments: _attachments,
+          tags: _tags,
+          groupId: _groupId,
+          updatedAt: now,
+          iconType: _iconType,
+          iconCode: _iconCode,
+          iconImageBase64: _iconImageBase64,
+          iconUrl: _iconUrl,
+        );
+        await repo.updateEntry(updated);
       }
 
       ref.read(vaultRevisionProvider.notifier).update((n) => n + 1);

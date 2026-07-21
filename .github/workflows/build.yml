@@ -110,5 +110,5 @@ jobs:
           name: K-Passwort (latest)
           body: Automatisch erstelltes Release der neuesten main-Version.
           files: build/app/outputs/flutter-apk/K-Passwort.apk
-          prerelease: true
+          prerelease: false
           retention-days: 30

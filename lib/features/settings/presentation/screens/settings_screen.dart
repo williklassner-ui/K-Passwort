@@ -342,7 +342,7 @@ class _State extends ConsumerState<SettingsScreen> {
                   ],
                 ),
                 child: Text(
-                  'K-Passwort Beta 0.5.5',
+                  'K-Passwort Beta 0.6.0',
                   style: AppTypography.titleLarge.copyWith(
                     color: KPasswortColors.warning,
                     fontWeight: FontWeight.w700,

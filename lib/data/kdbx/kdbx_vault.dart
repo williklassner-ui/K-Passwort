@@ -351,6 +351,25 @@ class KdbxVault {
       }
     }
 
+    // Native KDBX string fields created by other apps (e.g. KeePass desktop)
+    // that are not tracked in the __kpa_cf_keys manifest.
+    const _standardKdbxKeys = {'Title', 'UserName', 'Password', 'URL', 'Notes'};
+    final manifestKeys = cfKeysRaw.split('\n').where((s) => s.isNotEmpty).toSet();
+    for (final kv in e.stringEntries) {
+      final key = kv.key.key;
+      if (_standardKdbxKeys.contains(key)) continue;
+      if (key.startsWith('__kpa_')) continue;
+      if (manifestKeys.contains(key)) continue;
+      final sv = kv.value;
+      customFields.add(CustomField(
+        key: key,
+        value: sv?.getText() ?? '',
+        isProtected: sv is ProtectedValue,
+        type: CustomFieldType.text,
+        iconCode: null,
+      ));
+    }
+
     // Attachments: read via count key
     final attCountStr = e.getString(_attCountKey)?.getText() ?? '0';
     final attCount = int.tryParse(attCountStr) ?? 0;

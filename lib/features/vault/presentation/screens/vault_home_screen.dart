@@ -201,7 +201,7 @@ class VaultHomeScreen extends ConsumerStatefulWidget {
 class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   bool _searching = false;
   bool _savingGroup = false;
-  bool _filtersExpanded = true;
+  bool _filtersExpanded = false;
   final _searchController = TextEditingController();
   // Tracks which entries have already run their entrance animation once, so
   // scrolling a tile back into view doesn't re-trigger fade/slide (was
@@ -543,8 +543,8 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                               IconButton(
                                 icon: Icon(
                                   _filtersExpanded
-                                      ? Icons.expand_less_rounded
-                                      : Icons.expand_more_rounded,
+                                      ? Icons.folder_open_rounded
+                                      : Icons.folder_rounded,
                                   color: KPasswortColors.onSurfaceVariant,
                                 ),
                                 onPressed: () =>

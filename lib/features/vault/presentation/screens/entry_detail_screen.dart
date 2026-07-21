@@ -385,7 +385,7 @@ class _FieldRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: KPasswortColors.surface,
+        color: KPasswortColors.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: KPasswortColors.outline, width: 0.5),
       ),
@@ -429,7 +429,7 @@ class _PasswordRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: KPasswortColors.surface,
+        color: KPasswortColors.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: KPasswortColors.outline, width: 0.5),
       ),
@@ -483,7 +483,7 @@ class _NotesSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: KPasswortColors.surface,
+        color: KPasswortColors.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: KPasswortColors.outline, width: 0.5),
       ),

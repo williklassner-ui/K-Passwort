@@ -191,6 +191,9 @@ mixin _$VaultEntry {
   List<CustomField> get customFields => throw _privateConstructorUsedError;
   List<VaultAttachment> get attachments => throw _privateConstructorUsedError;
   String? get totpSecret => throw _privateConstructorUsedError;
+  EntryIconType get iconType => throw _privateConstructorUsedError;
+  int? get iconCode => throw _privateConstructorUsedError;
+  String? get iconImageBase64 => throw _privateConstructorUsedError;
   String? get iconUrl => throw _privateConstructorUsedError;
   String? get groupId => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
@@ -225,6 +228,9 @@ abstract class $VaultEntryCopyWith<$Res> {
       List<CustomField> customFields,
       List<VaultAttachment> attachments,
       String? totpSecret,
+      EntryIconType iconType,
+      int? iconCode,
+      String? iconImageBase64,
       String? iconUrl,
       String? groupId,
       DateTime createdAt,
@@ -258,6 +264,9 @@ class _$VaultEntryCopyWithImpl<$Res, $Val extends VaultEntry>
     Object? customFields = null,
     Object? attachments = null,
     Object? totpSecret = freezed,
+    Object? iconType = null,
+    Object? iconCode = freezed,
+    Object? iconImageBase64 = freezed,
     Object? iconUrl = freezed,
     Object? groupId = freezed,
     Object? createdAt = null,
@@ -306,6 +315,18 @@ class _$VaultEntryCopyWithImpl<$Res, $Val extends VaultEntry>
           ? _value.totpSecret
           : totpSecret // ignore: cast_nullable_to_non_nullable
               as String?,
+      iconType: null == iconType
+          ? _value.iconType
+          : iconType // ignore: cast_nullable_to_non_nullable
+              as EntryIconType,
+      iconCode: freezed == iconCode
+          ? _value.iconCode
+          : iconCode // ignore: cast_nullable_to_non_nullable
+              as int?,
+      iconImageBase64: freezed == iconImageBase64
+          ? _value.iconImageBase64
+          : iconImageBase64 // ignore: cast_nullable_to_non_nullable
+              as String?,
       iconUrl: freezed == iconUrl
           ? _value.iconUrl
           : iconUrl // ignore: cast_nullable_to_non_nullable
@@ -353,6 +374,9 @@ abstract class _$$VaultEntryImplCopyWith<$Res>
       List<CustomField> customFields,
       List<VaultAttachment> attachments,
       String? totpSecret,
+      EntryIconType iconType,
+      int? iconCode,
+      String? iconImageBase64,
       String? iconUrl,
       String? groupId,
       DateTime createdAt,
@@ -384,6 +408,9 @@ class __$$VaultEntryImplCopyWithImpl<$Res>
     Object? customFields = null,
     Object? attachments = null,
     Object? totpSecret = freezed,
+    Object? iconType = null,
+    Object? iconCode = freezed,
+    Object? iconImageBase64 = freezed,
     Object? iconUrl = freezed,
     Object? groupId = freezed,
     Object? createdAt = null,
@@ -432,6 +459,18 @@ class __$$VaultEntryImplCopyWithImpl<$Res>
           ? _value.totpSecret
           : totpSecret // ignore: cast_nullable_to_non_nullable
               as String?,
+      iconType: null == iconType
+          ? _value.iconType
+          : iconType // ignore: cast_nullable_to_non_nullable
+              as EntryIconType,
+      iconCode: freezed == iconCode
+          ? _value.iconCode
+          : iconCode // ignore: cast_nullable_to_non_nullable
+              as int?,
+      iconImageBase64: freezed == iconImageBase64
+          ? _value.iconImageBase64
+          : iconImageBase64 // ignore: cast_nullable_to_non_nullable
+              as String?,
       iconUrl: freezed == iconUrl
           ? _value.iconUrl
           : iconUrl // ignore: cast_nullable_to_non_nullable
@@ -474,6 +513,9 @@ class _$VaultEntryImpl implements _VaultEntry {
       final List<CustomField> customFields = const [],
       final List<VaultAttachment> attachments = const [],
       this.totpSecret,
+      this.iconType = EntryIconType.auto,
+      this.iconCode,
+      this.iconImageBase64,
       this.iconUrl,
       this.groupId,
       required this.createdAt,
@@ -526,6 +568,13 @@ class _$VaultEntryImpl implements _VaultEntry {
   @override
   final String? totpSecret;
   @override
+  @JsonKey()
+  final EntryIconType iconType;
+  @override
+  final int? iconCode;
+  @override
+  final String? iconImageBase64;
+  @override
   final String? iconUrl;
   @override
   final String? groupId;
@@ -547,7 +596,7 @@ class _$VaultEntryImpl implements _VaultEntry {
 
   @override
   String toString() {
-    return 'VaultEntry(id: $id, title: $title, type: $type, username: $username, password: $password, url: $url, notes: $notes, customFields: $customFields, attachments: $attachments, totpSecret: $totpSecret, iconUrl: $iconUrl, groupId: $groupId, createdAt: $createdAt, updatedAt: $updatedAt, isFavorite: $isFavorite, tags: $tags)';
+    return 'VaultEntry(id: $id, title: $title, type: $type, username: $username, password: $password, url: $url, notes: $notes, customFields: $customFields, attachments: $attachments, totpSecret: $totpSecret, iconType: $iconType, iconCode: $iconCode, iconImageBase64: $iconImageBase64, iconUrl: $iconUrl, groupId: $groupId, createdAt: $createdAt, updatedAt: $updatedAt, isFavorite: $isFavorite, tags: $tags)';
   }
 
   @override
@@ -570,6 +619,12 @@ class _$VaultEntryImpl implements _VaultEntry {
                 .equals(other._attachments, _attachments) &&
             (identical(other.totpSecret, totpSecret) ||
                 other.totpSecret == totpSecret) &&
+            (identical(other.iconType, iconType) ||
+                other.iconType == iconType) &&
+            (identical(other.iconCode, iconCode) ||
+                other.iconCode == iconCode) &&
+            (identical(other.iconImageBase64, iconImageBase64) ||
+                other.iconImageBase64 == iconImageBase64) &&
             (identical(other.iconUrl, iconUrl) || other.iconUrl == iconUrl) &&
             (identical(other.groupId, groupId) || other.groupId == groupId) &&
             (identical(other.createdAt, createdAt) ||
@@ -595,6 +650,9 @@ class _$VaultEntryImpl implements _VaultEntry {
       const DeepCollectionEquality().hash(_customFields),
       const DeepCollectionEquality().hash(_attachments),
       totpSecret,
+      iconType,
+      iconCode,
+      iconImageBase64,
       iconUrl,
       groupId,
       createdAt,
@@ -630,6 +688,9 @@ abstract class _VaultEntry implements VaultEntry {
       final List<CustomField> customFields,
       final List<VaultAttachment> attachments,
       final String? totpSecret,
+      final EntryIconType iconType,
+      final int? iconCode,
+      final String? iconImageBase64,
       final String? iconUrl,
       final String? groupId,
       required final DateTime createdAt,
@@ -660,6 +721,12 @@ abstract class _VaultEntry implements VaultEntry {
   List<VaultAttachment> get attachments;
   @override
   String? get totpSecret;
+  @override
+  EntryIconType get iconType;
+  @override
+  int? get iconCode;
+  @override
+  String? get iconImageBase64;
   @override
   String? get iconUrl;
   @override

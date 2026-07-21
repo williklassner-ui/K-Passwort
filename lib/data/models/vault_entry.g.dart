@@ -36,6 +36,11 @@ _$VaultEntryImpl _$$VaultEntryImplFromJson(Map<String, dynamic> json) =>
               .toList() ??
           [],
       totpSecret: json['totpSecret'] as String?,
+      iconType:
+          $enumDecodeNullable(_$EntryIconTypeEnumMap, json['iconType']) ??
+              EntryIconType.auto,
+      iconCode: (json['iconCode'] as num?)?.toInt(),
+      iconImageBase64: json['iconImageBase64'] as String?,
       iconUrl: json['iconUrl'] as String?,
       groupId: json['groupId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -59,6 +64,9 @@ Map<String, dynamic> _$$VaultEntryImplToJson(_$VaultEntryImpl instance) =>
       'customFields': instance.customFields.map((e) => e.toJson()).toList(),
       'attachments': instance.attachments.map((e) => e.toJson()).toList(),
       'totpSecret': instance.totpSecret,
+      'iconType': _$EntryIconTypeEnumMap[instance.iconType]!,
+      'iconCode': instance.iconCode,
+      'iconImageBase64': instance.iconImageBase64,
       'iconUrl': instance.iconUrl,
       'groupId': instance.groupId,
       'createdAt': instance.createdAt.toIso8601String(),
@@ -75,6 +83,13 @@ const _$EntryTypeEnumMap = {
   EntryType.sshKey: 'sshKey',
   EntryType.wifi: 'wifi',
   EntryType.custom: 'custom',
+};
+
+const _$EntryIconTypeEnumMap = {
+  EntryIconType.auto: 'auto',
+  EntryIconType.materialIcon: 'materialIcon',
+  EntryIconType.image: 'image',
+  EntryIconType.webThumbnail: 'webThumbnail',
 };
 
 _$CustomFieldImpl _$$CustomFieldImplFromJson(Map<String, dynamic> json) =>

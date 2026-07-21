@@ -201,6 +201,7 @@ class VaultHomeScreen extends ConsumerStatefulWidget {
 class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   bool _searching = false;
   bool _savingGroup = false;
+  bool _filtersExpanded = true;
   final _searchController = TextEditingController();
   // Tracks which entries have already run their entrance animation once, so
   // scrolling a tile back into view doesn't re-trigger fade/slide (was
@@ -516,102 +517,111 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
               slivers: [
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
 
-                // Favorites filter chip (always visible)
+                // Filter section: Favoriten (always visible) + collapsible groups/tags
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                    child: FilterChip(
-                      avatar: Icon(
-                        favoritesOnly ? Icons.star_rounded : Icons.star_outline_rounded,
-                        color: KPasswortColors.warning,
-                        size: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header row: Favoriten chip (left) + expand/collapse toggle (right)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
+                        child: Row(
+                          children: [
+                            FilterChip(
+                              avatar: Icon(
+                                favoritesOnly ? Icons.star_rounded : Icons.star_outline_rounded,
+                                color: KPasswortColors.warning,
+                                size: 16,
+                              ),
+                              label: const Text('Favoriten'),
+                              selected: favoritesOnly,
+                              onSelected: (v) =>
+                                  ref.read(favoritesOnlyProvider.notifier).state = v,
+                            ),
+                            const Spacer(),
+                            if (groups.isNotEmpty || allTags.isNotEmpty)
+                              IconButton(
+                                icon: Icon(
+                                  _filtersExpanded
+                                      ? Icons.expand_less_rounded
+                                      : Icons.expand_more_rounded,
+                                  color: KPasswortColors.onSurfaceVariant,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _filtersExpanded = !_filtersExpanded),
+                              ),
+                          ],
+                        ),
                       ),
-                      label: const Text('Favoriten'),
-                      selected: favoritesOnly,
-                      onSelected: (v) =>
-                          ref.read(favoritesOnlyProvider.notifier).state = v,
-                    ),
+                      // Collapsible groups + tags
+                      if (_filtersExpanded && (groups.isNotEmpty || allTags.isNotEmpty))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              if (groups.isNotEmpty) ...[
+                                FilterChip(
+                                  label: const Text('Alle'),
+                                  selected: selectedGroup == null,
+                                  onSelected: (_) =>
+                                      ref.read(selectedGroupProvider.notifier).state = null,
+                                ),
+                                ...groups.map((g) {
+                                  final groupColor = groupColors[g.id] ?? 0;
+                                  return FilterChip(
+                                    avatar: groupColor != 0
+                                        ? CircleAvatar(
+                                            backgroundColor: Color(groupColor),
+                                            radius: 6,
+                                          )
+                                        : null,
+                                    label: Text(g.name),
+                                    selected: selectedGroup == g.id,
+                                    onSelected: (_) {
+                                      ref.read(selectedGroupProvider.notifier).state =
+                                          selectedGroup == g.id ? null : g.id;
+                                    },
+                                  );
+                                }),
+                              ],
+                              ...allTags.map((tag) {
+                                final isSelected = selectedTags.contains(tag.name);
+                                final tagColor = tagColors[tag.name] ?? 0;
+                                return FilterChip(
+                                  avatar: tagColor != 0
+                                      ? CircleAvatar(
+                                          backgroundColor: Color(tagColor),
+                                          radius: 6,
+                                        )
+                                      : tag.iconCode != 0
+                                          ? Icon(
+                                              IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
+                                              size: 14,
+                                            )
+                                          : null,
+                                  label: Text(tag.name),
+                                  selected: isSelected,
+                                  onSelected: (v) {
+                                    final notifier = ref.read(selectedTagsProvider.notifier);
+                                    final current =
+                                        Set<String>.from(ref.read(selectedTagsProvider));
+                                    if (v) {
+                                      current.add(tag.name);
+                                    } else {
+                                      current.remove(tag.name);
+                                    }
+                                    notifier.state = current;
+                                  },
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-
-                // Group filter chips
-                if (groups.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          FilterChip(
-                            label: const Text('Alle'),
-                            selected: selectedGroup == null,
-                            onSelected: (_) =>
-                                ref.read(selectedGroupProvider.notifier).state = null,
-                          ),
-                          ...groups.map((g) {
-                            final groupColor = groupColors[g.id] ?? 0;
-                            return FilterChip(
-                              avatar: groupColor != 0
-                                  ? CircleAvatar(
-                                      backgroundColor: Color(groupColor),
-                                      radius: 6,
-                                    )
-                                  : null,
-                              label: Text(g.name),
-                              selected: selectedGroup == g.id,
-                              onSelected: (_) {
-                                ref.read(selectedGroupProvider.notifier).state =
-                                    selectedGroup == g.id ? null : g.id;
-                              },
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Tag filter chips
-                if (allTags.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: allTags.map((tag) {
-                          final isSelected = selectedTags.contains(tag.name);
-                          final tagColor = tagColors[tag.name] ?? 0;
-                          return FilterChip(
-                            avatar: tagColor != 0
-                                ? CircleAvatar(
-                                    backgroundColor: Color(tagColor),
-                                    radius: 6,
-                                  )
-                                : tag.iconCode != 0
-                                    ? Icon(
-                                        IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
-                                        size: 14,
-                                      )
-                                    : null,
-                            label: Text(tag.name),
-                            selected: isSelected,
-                            onSelected: (v) {
-                              final notifier = ref.read(selectedTagsProvider.notifier);
-                              final current =
-                                  Set<String>.from(ref.read(selectedTagsProvider));
-                              if (v) {
-                                current.add(tag.name);
-                              } else {
-                                current.remove(tag.name);
-                              }
-                              notifier.state = current;
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
 
                 if (entries.isEmpty)
                   SliverFillRemaining(
@@ -622,7 +632,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     sliver: SliverList.separated(
                       itemCount: entries.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 0),
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final entry = entries[index];
                         final isFirstAppearance = _animatedEntryIds.add(entry.id);

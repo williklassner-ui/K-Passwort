@@ -8,9 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Apply screenshot-blocking preference from previous session
+  // Apply screenshot-blocking preference. Defaults to ON (FLAG_SECURE) so
+  // passwords are never exposed in screenshots or the app-switcher thumbnail;
+  // the user can opt out in Settings.
   final prefs = await SharedPreferences.getInstance();
-  if (prefs.getBool('screenshot_blocked') ?? false) {
+  if (prefs.getBool('screenshot_blocked') ?? true) {
     const MethodChannel(CryptoConstants.secureScreenChannel)
         .invokeMethod('setSecureScreen', {'enabled': true});
   }

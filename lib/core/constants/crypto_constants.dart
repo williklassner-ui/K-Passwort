@@ -2,13 +2,6 @@ abstract class CryptoConstants {
   // Key size
   static const int keyLength = 32; // 256 bits
 
-  // Argon2id parameters for the biometric key-wrapping PBKDF2 derivation
-  // (Argon2Kdf.derive() / master_key_manager.dart) — unrelated to the KDBX
-  // vault's own KDF below.
-  static const int argon2Memory = 65536;      // 64 MB
-  static const int argon2Iterations = 2;
-  static const int argon2Parallelism = 2;
-
   // Argon2id parameters for the KDBX vault's own KDF (kdbx_vault.dart
   // create()). The kdbx package's built-in default is only 1 MiB/2/1 —
   // far below OWASP's 19 MiB minimum. Real KeePass/KeePassXC defaults

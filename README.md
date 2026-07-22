@@ -19,8 +19,8 @@ Premium Android Passwortmanager — sicher, privat, kein Server.
 ```
 Master-Passwort (+ optionale Key-Datei)
          │
-         ▼ Argon2id (64MB RAM, 2 Iterationen)
-    Master Key (32 Byte, nur im RAM)
+         ▼ Argon2id (256 MiB RAM, 3 Iterationen, mobil kalibriert)
+    Master Key (nur im RAM)
          │
     KDBX 4.x Datei
     ├── AES-256-CBC Body
@@ -28,9 +28,10 @@ Master-Passwort (+ optionale Key-Datei)
     └── HMAC-SHA256 Header-Authentifizierung
 ```
 
-- Master Key wird bei Sperre auf null gesetzt (zeroed)
-- Biometrik wraps den Key im Android Keystore (hardware TEE)
-- Screenshots blockiert via FLAG_SECURE
+- Master-Passwort wird bei Sperre aus dem RAM entfernt
+- Biometrik: das Master-Passwort wird im Android Keystore (hardware TEE,
+  BIOMETRIC_STRONG erforderlich) verschlüsselt — **nie im Klartext gespeichert**
+- Screenshots standardmäßig via FLAG_SECURE blockiert (in Einstellungen abschaltbar)
 - Zwischenablage löscht sich nach 30 Sekunden automatisch
 
 ## Sync via Google Drive (ohne API)

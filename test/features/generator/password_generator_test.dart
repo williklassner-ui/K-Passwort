@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:k_passwort/features/generator/domain/password_generator.dart';
+import 'package:k_passwort/features/generator/domain/passphrase_wordlist.dart';
 
 void main() {
   group('PasswordGenerator', () {
@@ -60,6 +61,17 @@ void main() {
         final phrase = PasswordGenerator.generatePassphrase(wordCount: count);
         expect(phrase.split('-').length, equals(count));
       }
+    });
+
+    test('passphrase wordlist is large, unique and lowercase', () {
+      // At least 2048 words (11 bits/word) — the old list was only 52 words.
+      expect(kPassphraseWordlist.length, greaterThanOrEqualTo(2048));
+      // No duplicates (would silently lower entropy).
+      expect(kPassphraseWordlist.toSet().length,
+          equals(kPassphraseWordlist.length));
+      // Only lowercase a–z, so passphrases are typeable and consistent.
+      final pattern = RegExp(r'^[a-z]+$');
+      expect(kPassphraseWordlist.every(pattern.hasMatch), isTrue);
     });
   });
 }

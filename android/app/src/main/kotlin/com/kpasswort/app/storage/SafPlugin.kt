@@ -166,7 +166,17 @@ class SafPlugin(private val activity: Activity) :
     private fun openAttachment(name: String, mimeType: String, bytes: ByteArray, result: MethodChannel.Result) {
         try {
             val cacheDir = File(activity.cacheDir, "attachments").also { it.mkdirs() }
-            val file = File(cacheDir, name)
+            // Sanitize the attachment name — it originates from vault entries
+            // (possibly a KDBX created by another app) and must never be able to
+            // escape the cache directory via path separators or "..".
+            val safeName = File(name).name
+                .replace(Regex("[/\\\\]"), "_")
+                .ifBlank { "attachment" }
+            val file = File(cacheDir, safeName)
+            if (!file.canonicalPath.startsWith(cacheDir.canonicalPath + File.separator)) {
+                result.error("INVALID_NAME", "Ungültiger Dateiname", null)
+                return
+            }
             file.writeBytes(bytes)
             val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
             val intent = Intent(Intent.ACTION_VIEW).apply {

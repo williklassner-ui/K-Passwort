@@ -1,0 +1,15 @@
+# Release signing configuration for K-Passwort.
+#
+# Copy this file to `android/key.properties` (which is git-ignored) and fill in
+# your own values. The release build in android/app/build.gradle reads it to
+# sign the APK/AAB with your upload/release key. If key.properties is missing,
+# the release build stays UNSIGNED — it never falls back to the debug key.
+#
+# Create a keystore with:
+#   keytool -genkey -v -keystore ~/kpasswort-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias kpasswort
+
+storeFile=/absolute/path/to/kpasswort-release.jks
+storePassword=CHANGE_ME
+keyAlias=kpasswort
+keyPassword=CHANGE_ME

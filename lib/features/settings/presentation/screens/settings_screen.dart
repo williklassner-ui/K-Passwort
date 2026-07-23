@@ -34,7 +34,7 @@ class _State extends ConsumerState<SettingsScreen> {
   String? _lastOpenDiagnostic;
   final _bioService = BiometricService();
   bool _biometricAvailable = false;
-  bool _screenshotBlocked = false;
+  bool _screenshotBlocked = true;
   int _autoLockMs = CryptoConstants.autoLockDelayMs;
   bool _lockOnScreenOff = false;
 
@@ -60,7 +60,7 @@ class _State extends ConsumerState<SettingsScreen> {
       _biometricAvailable = bioAvail;
       _vaultUri = uri;
       _vaultLocationLabel = locationLabel;
-      _screenshotBlocked = prefs.getBool(_screenshotKey) ?? false;
+      _screenshotBlocked = prefs.getBool(_screenshotKey) ?? true;
       _autoLockMs = prefs.getInt('auto_lock_ms') ?? CryptoConstants.autoLockDelayMs;
       _lockOnScreenOff = prefs.getBool('lock_on_screen_off') ?? false;
       _lastOpenDiagnostic = prefs.getString('last_open_diagnostic');

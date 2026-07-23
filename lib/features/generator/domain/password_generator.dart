@@ -1,5 +1,6 @@
 import 'package:k_passwort/core/constants/app_constants.dart';
 import 'package:k_passwort/core/utils/secure_random.dart';
+import 'package:k_passwort/features/generator/domain/passphrase_wordlist.dart';
 
 class PasswordGeneratorConfig {
   const PasswordGeneratorConfig({
@@ -90,6 +91,9 @@ class PasswordGenerator {
     return chars.join();
   }
 
+  /// Generates a diceware-style passphrase by drawing [wordCount] words
+  /// uniformly (CSPRNG) from [kPassphraseWordlist] (2048 words → 11 bits of
+  /// entropy each; the default 6 words ≈ 66 bits).
   static String generatePassphrase({
     int wordCount = AppConstants.defaultPassphraseWords,
     String separator = AppConstants.defaultPassphraseSeparator,
@@ -98,16 +102,6 @@ class PasswordGenerator {
     return words.join(separator);
   }
 
-  // Minimal embedded wordlist sample — replace with full EFF list in production
-  static final _wordlist = [
-    'amber', 'brave', 'cloud', 'dance', 'eagle', 'frost', 'grace', 'haven',
-    'ivory', 'jewel', 'knoll', 'lemon', 'maple', 'noble', 'ocean', 'pearl',
-    'quest', 'river', 'storm', 'tiger', 'ultra', 'vivid', 'water', 'xenon',
-    'youth', 'zebra', 'apple', 'brush', 'crane', 'delta', 'ember', 'flint',
-    'glide', 'haste', 'inlet', 'judge', 'karma', 'laser', 'magic', 'nerve',
-    'onion', 'prism', 'quiet', 'radar', 'solar', 'tower', 'unity', 'valor',
-    'wheat', 'xylem', 'yeast', 'zonal',
-  ];
-
-  static String _wordlistSample() => _wordlist[SecureRandom.nextInt(_wordlist.length)];
+  static String _wordlistSample() =>
+      kPassphraseWordlist[SecureRandom.nextInt(kPassphraseWordlist.length)];
 }

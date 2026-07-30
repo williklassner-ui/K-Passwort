@@ -70,6 +70,7 @@ class MasterKeyManager {
       throw StateError('Must be unlocked first');
     }
 
+    await disableBiometric();
     await AndroidKeystore.generateKey();
     final passwordKey = SecureKey(Uint8List.fromList(utf8.encode(password)));
     try {

@@ -44,7 +44,15 @@ class MasterKeyManager {
 
     final key = await AndroidKeystore.unwrapKey(wrappedKey: wrappedKey, iv: iv);
     try {
-      final password = utf8.decode(key.bytes);
+      final String password;
+      try {
+        password = utf8.decode(key.bytes);
+      } on FormatException {
+        await disableBiometric();
+        throw const BiometricFailure(
+            'Biometrie-Daten veraltet — bitte mit Master-Passwort entsperren '
+            'und Biometrik in den Einstellungen neu einrichten');
+      }
       _rawPassword = password;
       return password;
     } finally {

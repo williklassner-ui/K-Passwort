@@ -7,6 +7,7 @@ import 'package:k_passwort/data/storage/saf_storage.dart';
 import 'package:k_passwort/features/settings/providers/trash_retention_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_list_provider.dart';
 import 'package:k_passwort/features/vault/providers/vault_provider.dart';
+import 'package:k_passwort/core/errors/failures.dart';
 import 'package:k_passwort/security/keystore/master_key_manager.dart';
 import 'package:k_passwort/security/keystore/session_manager.dart';
 import 'package:k_passwort/sync/saf_sync_service.dart';
@@ -74,6 +75,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       } else {
         if (mounted) setState(() { _loading = false; });
       }
+    } on BiometricFailure catch (e) {
+      if (mounted) setState(() { _loading = false; _error = e.message; });
     } catch (e) {
       if (mounted) {
         setState(() {

@@ -128,7 +128,8 @@ class BiometricCryptoHelper(private val activity: FragmentActivity) : MethodChan
                 }
 
                 override fun onAuthenticationFailed() {
-                    result.error("AUTH_FAILED", "Authentication failed", null)
+                    // Single attempt failed; prompt stays open for retry.
+                    // Terminal failures are reported via onAuthenticationError().
                 }
             })
             prompt.authenticate(promptInfo, cryptoObject)
@@ -171,7 +172,8 @@ class BiometricCryptoHelper(private val activity: FragmentActivity) : MethodChan
                 }
 
                 override fun onAuthenticationFailed() {
-                    result.error("AUTH_FAILED", "Authentication failed", null)
+                    // Single attempt failed; prompt stays open for retry.
+                    // Terminal failures are reported via onAuthenticationError().
                 }
             })
             prompt.authenticate(promptInfo, cryptoObject)

@@ -112,8 +112,12 @@ class BiometricCryptoHelper(private val activity: FragmentActivity) : MethodChan
 
             val prompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
+                    val authenticatedCipher = authResult.cryptoObject?.cipher
+                    if (authenticatedCipher == null) {
+                        result.error("CRYPTO_OBJECT_NULL", "Kein Crypto-Objekt vom System erhalten", null)
+                        return
+                    }
                     try {
-                        val authenticatedCipher = authResult.cryptoObject?.cipher!!
                         val encrypted = authenticatedCipher.doFinal(keyBytes)
                         val iv = Base64.encodeToString(authenticatedCipher.iv, Base64.NO_WRAP)
                         val wrapped = Base64.encodeToString(encrypted, Base64.NO_WRAP)
@@ -133,6 +137,9 @@ class BiometricCryptoHelper(private val activity: FragmentActivity) : MethodChan
                 }
             })
             prompt.authenticate(promptInfo, cryptoObject)
+        } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
+            deleteKeyEntry()
+            result.error("KEY_INVALIDATED", "Biometrischer Schlüssel wurde vom System ungültig gemacht.", null)
         } catch (e: Exception) {
             result.error("WRAP_INIT_FAILED", e.message, null)
         }
@@ -157,8 +164,12 @@ class BiometricCryptoHelper(private val activity: FragmentActivity) : MethodChan
 
             val prompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
+                    val authenticatedCipher = authResult.cryptoObject?.cipher
+                    if (authenticatedCipher == null) {
+                        result.error("CRYPTO_OBJECT_NULL", "Kein Crypto-Objekt vom System erhalten", null)
+                        return
+                    }
                     try {
-                        val authenticatedCipher = authResult.cryptoObject?.cipher!!
                         val encryptedBytes = Base64.decode(wrappedKey, Base64.NO_WRAP)
                         val decrypted = authenticatedCipher.doFinal(encryptedBytes)
                         result.success(decrypted)
@@ -177,6 +188,9 @@ class BiometricCryptoHelper(private val activity: FragmentActivity) : MethodChan
                 }
             })
             prompt.authenticate(promptInfo, cryptoObject)
+        } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
+            deleteKeyEntry()
+            result.error("KEY_INVALIDATED", "Biometrischer Schlüssel wurde vom System ungültig gemacht.", null)
         } catch (e: Exception) {
             result.error("UNWRAP_INIT_FAILED", e.message, null)
         }
@@ -184,14 +198,22 @@ class BiometricCryptoHelper(private val activity: FragmentActivity) : MethodChan
 
     private fun deleteKey(result: MethodChannel.Result) {
         try {
+            deleteKeyEntry()
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("DELETE_FAILED", e.message, null)
+        }
+    }
+
+    private fun deleteKeyEntry() {
+        try {
             val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER)
             keyStore.load(null)
             if (keyStore.containsAlias(KEY_ALIAS)) {
                 keyStore.deleteEntry(KEY_ALIAS)
             }
-            result.success(true)
-        } catch (e: Exception) {
-            result.error("DELETE_FAILED", e.message, null)
+        } catch (_: Exception) {
+            // Best effort — a failed cleanup here must not mask the original error.
         }
     }
 }

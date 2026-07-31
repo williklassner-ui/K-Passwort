@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:k_passwort/core/constants/app_constants.dart';
 import 'package:k_passwort/core/errors/failures.dart';
@@ -42,7 +43,16 @@ class MasterKeyManager {
       throw const BiometricFailure('Kein biometrischer Schlüssel gespeichert');
     }
 
-    final key = await AndroidKeystore.unwrapKey(wrappedKey: wrappedKey, iv: iv);
+    final SecureKey key;
+    try {
+      key = await AndroidKeystore.unwrapKey(wrappedKey: wrappedKey, iv: iv);
+    } on PlatformException catch (e) {
+      if (e.code == 'KEY_INVALIDATED') {
+        await disableBiometric();
+      }
+      throw BiometricFailure(
+          'Biometrie-Fehler [${e.code}]: ${e.message ?? "unbekannt"}');
+    }
     try {
       final String password;
       try {

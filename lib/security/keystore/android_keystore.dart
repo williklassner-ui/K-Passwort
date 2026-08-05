@@ -37,7 +37,7 @@ class AndroidKeystore {
       'iv': iv,
     });
     if (result == null) throw PlatformException(code: 'UNWRAP_FAILED');
-    return SecureKey(result);
+    return SecureKey(Uint8List.fromList(result));
   }
 
   static Future<bool> deleteKey() async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:k_passwort/core/constants/route_constants.dart';
 import 'package:k_passwort/core/utils/vault_open_flow.dart';
@@ -50,6 +51,19 @@ class WelcomeScreen extends StatelessWidget {
                   .animate(delay: 150.ms)
                   .fadeIn()
                   .slideY(begin: 0.1),
+
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snap) {
+                  if (snap.data == null) return const SizedBox.shrink();
+                  return Text(
+                    '${snap.data!.version}+${snap.data!.buildNumber}',
+                    style: AppTypography.bodySmall.copyWith(
+                      color: KPasswortColors.onSurfaceVariant,
+                    ),
+                  );
+                },
+              ).animate(delay: 200.ms).fadeIn(),
 
               const Spacer(flex: 3),
 

@@ -75,7 +75,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       } else {
         if (mounted) setState(() { _loading = false; });
       }
-    } on BiometricFailure catch (e) {
+    } on Failure catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.message; });
     } catch (e) {
       if (mounted) {

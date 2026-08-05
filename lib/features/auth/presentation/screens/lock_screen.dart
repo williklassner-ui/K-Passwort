@@ -81,7 +81,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Entsperren fehlgeschlagen — bitte erneut versuchen';
+          _error = 'Biometrie-Fehler: $e';
         });
       }
     }

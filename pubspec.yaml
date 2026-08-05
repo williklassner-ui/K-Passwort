@@ -1,7 +1,7 @@
 name: k_passwort
 description: Premium zero-knowledge password manager — KeePass-compatible KDBX 4.x
 publish_to: 'none'
-version: 0.6.0+13
+version: 0.6.0+14
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -53,6 +53,9 @@ dependencies:
   # Serialization
   freezed_annotation: ^2.4.1
   json_annotation: ^4.9.0
+
+  # App version
+  package_info_plus: ^8.1.0
 
   # Utils
   uuid: ^4.4.2

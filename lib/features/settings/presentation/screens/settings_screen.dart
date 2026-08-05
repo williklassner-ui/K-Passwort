@@ -18,6 +18,7 @@ import 'package:k_passwort/sync/saf_sync_service.dart';
 import 'package:k_passwort/ui/theme/color_scheme.dart';
 import 'package:k_passwort/ui/theme/typography.dart';
 import 'package:k_passwort/ui/widgets/gradient_scaffold.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -32,6 +33,7 @@ class _State extends ConsumerState<SettingsScreen> {
   String? _vaultUri;
   String? _vaultLocationLabel;
   String? _lastOpenDiagnostic;
+  String? _appVersion;
   final _bioService = BiometricService();
   bool _biometricAvailable = false;
   bool _screenshotBlocked = true;
@@ -54,6 +56,7 @@ class _State extends ConsumerState<SettingsScreen> {
     final uri = await SyncStateNotifier.getSavedVaultUri();
     final prefs = await SharedPreferences.getInstance();
     final locationLabel = uri != null ? await _describeVaultLocation(uri) : null;
+    final pkgInfo = await PackageInfo.fromPlatform();
     if (!mounted) return;
     setState(() {
       _biometricEnabled = bioEnabled;
@@ -64,6 +67,7 @@ class _State extends ConsumerState<SettingsScreen> {
       _autoLockMs = prefs.getInt('auto_lock_ms') ?? CryptoConstants.autoLockDelayMs;
       _lockOnScreenOff = prefs.getBool('lock_on_screen_off') ?? false;
       _lastOpenDiagnostic = prefs.getString('last_open_diagnostic');
+      _appVersion = '${pkgInfo.version}+${pkgInfo.buildNumber}';
     });
   }
 
@@ -342,7 +346,7 @@ class _State extends ConsumerState<SettingsScreen> {
                   ],
                 ),
                 child: Text(
-                  'K-Passwort Beta 0.6.0',
+                  'K-Passwort Beta ${_appVersion ?? '…'}',
                   style: AppTypography.titleLarge.copyWith(
                     color: KPasswortColors.warning,
                     fontWeight: FontWeight.w700,
